@@ -1,6 +1,6 @@
 import { HashRouter, Routes, Route } from "react-router-dom";
 import MainApp from "./features/dashboard/MainApp";
-import { OverlayTimer } from "./components/overlay/OverlayTimer";
+import { OverlayTimer } from "./features/overlay/OverlayTimer";
 
 function App() {
   return (

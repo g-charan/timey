@@ -1,6 +1,6 @@
 // File: src/renderer/src/components/OverlayTimer.tsx (Dieter Rams Inspired)
 import "@/styles/overlay.css";
-import { Button } from "../ui/button";
+import { Button } from "../../components/ui/button";
 import { useState, useEffect } from "react";
 
 export function OverlayTimer() {

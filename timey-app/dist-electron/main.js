@@ -37,7 +37,6 @@ function createOverlayWindow() {
       preload: path.join(__dirname, "preload.mjs")
     }
   });
-  overlayWindow.webContents.openDevTools({ mode: "detach" });
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setFullScreenable(false);
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
