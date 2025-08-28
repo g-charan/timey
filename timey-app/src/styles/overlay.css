@@ -1,0 +1,236 @@
+/* File: src/renderer/src/assets/overlay.css - Dieter Rams Inspired */
+
+/* Base transparency */
+body,
+html {
+  background-color: transparent;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Horizontal container - minimal screen footprint */
+.overlay-container-horizontal {
+  width: auto;
+  height: 44px;
+  background: rgba(250, 250, 250, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 22px; /* Pill shape for horizontal form */
+  border: 1px solid rgba(200, 200, 200, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.12);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    sans-serif;
+  position: relative;
+  user-select: none;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  min-width: 280px;
+  max-width: 500px; /* Prevent unlimited growth */
+  box-sizing: border-box; /* Include padding and border in width calculation */
+}
+
+/* Visible draggable handle - Dieter Rams would appreciate clear affordances */
+.drag-handle {
+  -webkit-app-region: drag;
+  width: 24px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  background: rgba(0, 0, 0, 0.03);
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 22px 0 0 22px;
+  flex-shrink: 0;
+  transition: background-color 0.15s ease;
+}
+
+.drag-handle:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.drag-dots {
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.4);
+  line-height: 1;
+  transform: rotate(90deg);
+  user-select: none;
+}
+
+.drag-handle:hover .drag-dots {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+/* Horizontal content layout */
+.horizontal-content {
+  -webkit-app-region: no-drag;
+  padding: 0 16px 0 12px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 1;
+}
+
+/* Info section - time and task stacked compactly */
+.info-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 60px;
+}
+
+.time-compact {
+  font-size: 16px;
+  font-weight: 300;
+  color: #1a1a1a;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-compact {
+  font-size: 9px;
+  font-weight: 400;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  line-height: 1;
+}
+
+/* Progress section - takes available space */
+.progress-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+}
+
+.progress-container-horizontal {
+  width: 100%;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.progress-bar-horizontal {
+  height: 100%;
+  background: #1a1a1a;
+  border-radius: 1px;
+  transition: width 0.3s ease;
+}
+
+/* Horizontal controls - compact buttons */
+.controls-horizontal {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.control-button-horizontal {
+  width: 28px !important;
+  height: 28px !important;
+  padding: 0 !important;
+  background: rgba(0, 0, 0, 0.03) !important;
+  border: 1px solid rgba(0, 0, 0, 0.15) !important;
+  color: #333 !important;
+  border-radius: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.15s ease !important;
+  flex-shrink: 0 !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+}
+
+.control-button-horizontal:hover {
+  background: rgba(0, 0, 0, 0.08) !important;
+  border-color: rgba(0, 0, 0, 0.25) !important;
+  transform: none !important;
+  color: #000 !important;
+}
+
+.control-button-horizontal:active {
+  background: rgba(0, 0, 0, 0.12) !important;
+  transform: scale(0.95) !important;
+}
+
+/* Subtle hover state for entire horizontal overlay */
+.overlay-container-horizontal:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Focus states for accessibility */
+.control-button-horizontal:focus-visible {
+  outline: 2px solid #007aff !important;
+  outline-offset: 1px !important;
+}
+
+/* Dark mode variant for horizontal layout */
+@media (prefers-color-scheme: dark) {
+  .overlay-container-horizontal {
+    background: rgba(28, 28, 30, 0.95);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .drag-handle {
+    background: rgba(255, 255, 255, 0.05);
+    border-right-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .drag-handle:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .drag-handle:active {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  .drag-dots {
+    color: rgba(255, 255, 255, 0.4);
+  }
+
+  .drag-handle:hover .drag-dots {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .time-compact {
+    color: #f5f5f7;
+  }
+
+  .task-compact {
+    color: #a1a1a6;
+  }
+
+  .progress-bar-horizontal {
+    background: #f5f5f7;
+  }
+
+  .progress-container-horizontal {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .control-button-horizontal {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    color: #f5f5f7 !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .control-button-horizontal:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: #ffffff !important;
+  }
+}
