@@ -127,8 +127,10 @@ function createWindow() {
     }
   });
   mainWindow.on("blur", () => {
-    if (!overlayWindow) {
-      createOverlayWindow();
+    if (mainWindow && !mainWindow.isFullScreen()) {
+      if (!overlayWindow) {
+        createOverlayWindow();
+      }
     }
   });
   mainWindow.on("focus", () => {

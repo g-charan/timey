@@ -177,8 +177,11 @@ function createWindow() {
 
   mainWindow.on("blur", () => {
     // If the overlay doesn't already exist, create it
-    if (!overlayWindow) {
-      createOverlayWindow();
+    if (mainWindow && !mainWindow.isFullScreen()) {
+      // If the overlay doesn't already exist, create it
+      if (!overlayWindow) {
+        createOverlayWindow();
+      }
     }
   });
 
