@@ -1,3 +1,6 @@
+var __defProp = Object.defineProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 import { app, ipcMain, BrowserWindow, screen } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -71,6 +74,137 @@ ipcMain.handle(
 const require2 = createRequire(import.meta.url);
 const __dirname = path$1.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path$1.join(__dirname, "..");
+class TimerManager {
+  constructor() {
+    __publicField(this, "timerState", {
+      timeLeft: null,
+      isActive: false,
+      sessionName: "",
+      progress: 0,
+      totalTime: 0
+    });
+    __publicField(this, "timerInterval", null);
+    this.setupIpcHandlers();
+  }
+  setupIpcHandlers() {
+    ipcMain.handle(
+      "start-timer",
+      (event, { duration, sessionName }) => {
+        this.startTimer(duration, sessionName);
+        return this.timerState;
+      }
+    );
+    ipcMain.handle("pause-timer", () => {
+      this.pauseTimer();
+      return this.timerState;
+    });
+    ipcMain.handle("resume-timer", () => {
+      this.resumeTimer();
+      return this.timerState;
+    });
+    ipcMain.handle("stop-timer", () => {
+      this.stopTimer();
+      return this.timerState;
+    });
+    ipcMain.handle("get-timer-state", () => {
+      return this.timerState;
+    });
+    ipcMain.handle("update-session-name", (event, sessionName) => {
+      this.timerState.sessionName = sessionName;
+      this.broadcastUpdate();
+      return this.timerState;
+    });
+  }
+  startTimer(duration, sessionName) {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+    }
+    this.timerState = {
+      timeLeft: duration,
+      totalTime: duration,
+      isActive: true,
+      sessionName,
+      progress: 0
+    };
+    this.timerInterval = setInterval(() => {
+      this.tick();
+    }, 1e3);
+    this.broadcastUpdate();
+  }
+  pauseTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    this.timerState.isActive = false;
+    this.broadcastUpdate();
+  }
+  resumeTimer() {
+    if (this.timerState.timeLeft && this.timerState.timeLeft > 0) {
+      this.timerState.isActive = true;
+      this.timerInterval = setInterval(() => {
+        this.tick();
+      }, 1e3);
+      this.broadcastUpdate();
+    }
+  }
+  stopTimer() {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    this.timerState = {
+      timeLeft: null,
+      isActive: false,
+      sessionName: "",
+      progress: 0,
+      totalTime: 0
+    };
+    this.broadcastUpdate();
+  }
+  tick() {
+    if (this.timerState.timeLeft !== null && this.timerState.timeLeft > 0) {
+      this.timerState.timeLeft -= 1;
+      if (this.timerState.totalTime > 0) {
+        this.timerState.progress = (this.timerState.totalTime - this.timerState.timeLeft) / this.timerState.totalTime * 100;
+      }
+      this.broadcastUpdate();
+      if (this.timerState.timeLeft === 0) {
+        this.onTimerComplete();
+      }
+    }
+  }
+  onTimerComplete() {
+    this.timerState.isActive = false;
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    this.broadcastUpdate();
+    this.broadcastTimerComplete();
+  }
+  broadcastUpdate() {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("timer-update", this.timerState);
+    }
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send("timer-update", this.timerState);
+    }
+  }
+  broadcastTimerComplete() {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("timer-complete", this.timerState);
+    }
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.webContents.send("timer-complete", this.timerState);
+    }
+  }
+  // Public method to get current state
+  getCurrentState() {
+    return { ...this.timerState };
+  }
+}
+new TimerManager();
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
@@ -109,6 +243,8 @@ function createOverlayWindow() {
   overlayWindow.setFullScreenable(false);
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
   overlayWindow.setIgnoreMouseEvents(false);
+  overlayWindow.webContents.openDevTools({ mode: "detach" });
+  mainWindow == null ? void 0 : mainWindow.webContents.openDevTools({ mode: "detach" });
   overlayWindow.webContents.on("did-finish-load", () => {
     setTimeout(() => {
       resizeOverlayToContent();

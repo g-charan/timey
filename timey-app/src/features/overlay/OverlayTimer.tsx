@@ -1,80 +1,90 @@
-// File: src/renderer/src/components/OverlayTimer.tsx (Dieter Rams Inspired)
+// File: src/renderer/src/components/OverlayTimer.tsx
 import "@/styles/overlay.css";
 import { Button } from "../../components/ui/button";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+
+interface TimerState {
+  timeLeft: number | null;
+  isActive: boolean;
+  sessionName: string;
+  progress: number;
+}
 
 export function OverlayTimer() {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(65); // 65% complete
+  const [timerState, setTimerState] = useState<TimerState>({
+    timeLeft: null,
+    isActive: false,
+    sessionName: "",
+    progress: 0,
+  });
 
-  const FOCUS_TIME_SECONDS = 1 * 60; // 25 minutes
-  const [timeRemaining, setTimeRemaining] = useState(FOCUS_TIME_SECONDS);
-  const [isActive, setIsActive] = useState(false);
-
+  // Listen for timer updates from main process
   useEffect(() => {
-    let interval: number | undefined | any = undefined;
+    const handleTimerUpdate = (event: any, state: TimerState) => {
+      setTimerState(state);
+    };
 
-    if (isActive && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining((time) => time - 1);
-      }, 1000);
-    } else if (!isActive || timeRemaining === 0) {
-      clearInterval(interval);
-    }
-    setProgress(
-      ((FOCUS_TIME_SECONDS - timeRemaining) / FOCUS_TIME_SECONDS) * 100
-    );
-    if (timeRemaining === 0) {
-      setIsActive(false);
-      setIsPlaying(false);
-      resetTimer();
+    if (window.electronAPI) {
+      window.electronAPI.onTimerUpdate(handleTimerUpdate);
+
+      // Request current timer state on mount
+      window.electronAPI.getTimerState().then((state: TimerState) => {
+        if (state) setTimerState(state);
+      });
     }
 
-    // Cleanup function to clear interval when component unmounts or isActive changes
-    return () => clearInterval(interval);
-  }, [isActive, timeRemaining]);
+    return () => {
+      if (window.electronAPI) {
+        window.electronAPI.removeTimerUpdateListener(handleTimerUpdate);
+      }
+    };
+  }, []);
 
-  const toggleTimer = () => {
-    setIsActive(!isActive);
-  };
-
-  const resetTimer = () => {
-    setIsActive(false);
-    setTimeRemaining(FOCUS_TIME_SECONDS);
-  };
-
-  // Format time for display
-  const minutes = Math.floor(timeRemaining / 60);
-  const seconds = timeRemaining % 60;
-
-  // Only trigger resize on mount, not on state changes
+  // Trigger resize when timer values change
   useEffect(() => {
     const timer = setTimeout(() => {
       if (window.electronAPI?.resizeOverlay) {
         window.electronAPI.resizeOverlay();
       }
-    }, 100); // Slightly longer delay for initial render
+    }, 100);
 
     return () => clearTimeout(timer);
-  }, []); // Remove dependencies to only run on mount
+  }, [
+    timerState.timeLeft,
+    timerState.sessionName,
+    timerState.progress,
+    timerState.isActive,
+  ]);
 
   const handleDoubleClick = () => {
     console.log("Double clicked overlay");
-    window.electronAPI.restoreMain();
+    window.electronAPI?.restoreMain();
   };
 
   const handlePlayPause = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsPlaying(!isPlaying);
+    if (window.electronAPI) {
+      if (timerState.isActive) {
+        window.electronAPI.pauseTimer();
+      } else if (timerState.timeLeft !== null && timerState.timeLeft > 0) {
+        window.electronAPI.resumeTimer();
+      }
+    }
   };
 
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
-    window.electronAPI.restoreMain();
+    window.electronAPI?.restoreMain();
   };
 
-  const currentTime = "24:52";
-  const currentTask = "Focus Session";
+  const formatTime = (seconds: number | null): string => {
+    if (seconds === null) return "00:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
+  };
 
   return (
     <div
@@ -93,10 +103,13 @@ export function OverlayTimer() {
         {/* Left: Time and task in compact format */}
         <div className="info-section">
           <div className="time-compact">
-            {String(minutes).padStart(2, "0")}:
-            {String(seconds).padStart(2, "0")}
+            {timerState.timeLeft !== null
+              ? formatTime(timerState.timeLeft)
+              : "00:00"}
           </div>
-          <div className="task-compact">{currentTask}</div>
+          <div className="task-compact">
+            {timerState.sessionName || "No active session"}
+          </div>
         </div>
 
         {/* Center: Progress bar */}
@@ -104,21 +117,27 @@ export function OverlayTimer() {
           <div className="progress-container-horizontal">
             <div
               className="progress-bar-horizontal"
-              style={{ width: `${progress}%` }}
+              style={{
+                width: `${
+                  timerState.timeLeft !== null ? timerState.progress : 0
+                }%`,
+              }}
             />
           </div>
         </div>
 
         {/* Right: Minimal controls */}
         <div className="controls-horizontal">
-          <Button
-            onClick={toggleTimer}
-            className="control-button-horizontal"
-            size="sm"
-            variant="ghost"
-          >
-            {isActive ? "⏸" : "▶"}
-          </Button>
+          {timerState.timeLeft !== null && timerState.timeLeft > 0 && (
+            <Button
+              onClick={handlePlayPause}
+              className="control-button-horizontal"
+              size="sm"
+              variant="ghost"
+            >
+              {timerState.isActive ? "⏸" : "▶"}
+            </Button>
+          )}
 
           <Button
             onClick={handleClose}

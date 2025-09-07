@@ -67,6 +67,7 @@ import { StatsView } from "../stats/components/stats-view";
 import { CalendarView } from "../calendar/components/calendar-view";
 import { SettingsView } from "../settings/components/settings-view";
 import ProjectsHub from "../projecthub/components/projectshub-view";
+import TimerScreen from "../timer/components/timer-view";
 
 // --- Page Components (Production Ready) ---
 
@@ -116,7 +117,7 @@ function MainApp() {
         return <ProjectsHub />;
       case "timer":
       default:
-        return <TimerView />;
+        return <TimerScreen />;
     }
   };
 
