@@ -31,3 +31,9 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   // <-- Add this
   stopTracking: () => electron.ipcRenderer.send("stop-tracking")
 });
+electron.contextBridge.exposeInMainWorld("db", {
+  getDashboardData: () => electron.ipcRenderer.invoke("db:getDashboardData"),
+  createProject: (data) => electron.ipcRenderer.invoke("db:createProject", data),
+  startSession: (data) => electron.ipcRenderer.invoke("db:startSession", data),
+  endSession: (data) => electron.ipcRenderer.invoke("db:endSession", data)
+});

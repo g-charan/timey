@@ -66,6 +66,7 @@ import { DashboardView } from "./components/dashboard";
 import { StatsView } from "../stats/components/stats-view";
 import { CalendarView } from "../calendar/components/calendar-view";
 import { SettingsView } from "../settings/components/settings-view";
+import ProjectsHub from "../projecthub/components/projectshub-view";
 
 // --- Page Components (Production Ready) ---
 
@@ -93,6 +94,7 @@ export const sidebarNavItems = [
   { id: "calendar", title: "Calendar", icon: CalendarDays },
   { id: "stats", title: "Stats", icon: BarChart3 },
   { id: "settings", title: "Settings", icon: Settings },
+  { id: "projectshub", title: "Projecthub", icon: Settings },
 ];
 
 // --- Main Application Component ---
@@ -110,6 +112,8 @@ function MainApp() {
         return <CalendarView />;
       case "settings":
         return <SettingsView />;
+      case "projectshub":
+        return <ProjectsHub />;
       case "timer":
       default:
         return <TimerView />;

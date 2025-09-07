@@ -5,6 +5,7 @@ import path from "node:path";
 import { screen, ipcMain } from "electron";
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import "./ipc";
 
 // The built directory structure
 //
@@ -16,6 +17,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // │ │ └── preload.mjs
 // │
 process.env.APP_ROOT = path.join(__dirname, "..");
+
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch("ignore-gpu-blocklist");
 
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
 export const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];

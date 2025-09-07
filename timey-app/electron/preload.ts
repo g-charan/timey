@@ -33,3 +33,41 @@ contextBridge.exposeInMainWorld("electronAPI", {
   startTracking: () => ipcRenderer.send("start-tracking"), // <-- Add this
   stopTracking: () => ipcRenderer.send("stop-tracking"),
 });
+
+contextBridge.exposeInMainWorld("db", {
+  getDashboardData: () => ipcRenderer.invoke("db:getDashboardData"),
+  createProject: (data: { id: string; name: string; color?: string }) =>
+    ipcRenderer.invoke("db:createProject", data),
+  startSession: (data: {
+    id: string;
+    project_id?: string;
+    task?: string;
+    planned_duration?: number;
+  }) => ipcRenderer.invoke("db:startSession", data),
+  endSession: (data: { id: string; focus_score?: number; tags?: string[] }) =>
+    ipcRenderer.invoke("db:endSession", data),
+});
+
+declare global {
+  interface Window {
+    db: {
+      getDashboardData: () => Promise<any>;
+      createProject: (data: {
+        id: string;
+        name: string;
+        color?: string;
+      }) => Promise<{ success: boolean }>;
+      startSession: (data: {
+        id: string;
+        project_id?: string;
+        task?: string;
+        planned_duration?: number;
+      }) => Promise<{ success: boolean }>;
+      endSession: (data: {
+        id: string;
+        focus_score?: number;
+        tags?: string[];
+      }) => Promise<{ success: boolean }>;
+    };
+  }
+}

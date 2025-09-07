@@ -1,14 +1,82 @@
-import { app, BrowserWindow, ipcMain, screen } from "electron";
+import { app, ipcMain, BrowserWindow, screen } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
+import path$1 from "node:path";
+import path from "path";
+import fs from "fs";
+const dbPath = path.join(app.getPath("userData"), "focus.json");
+let db = { projects: [], milestones: [], sessions: [] };
+function saveDB() {
+  fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
+}
+function getDashboardData() {
+  return {
+    projects: db.projects,
+    recentSessions: db.sessions.slice(-50).reverse()
+  };
+}
+function createProject(id, name, color) {
+  db.projects.push({
+    id,
+    name,
+    color,
+    total_seconds: 0,
+    avg_focus_score: 0,
+    created_at: Date.now(),
+    updated_at: Date.now()
+  });
+  saveDB();
+}
+function startSession(data) {
+  db.sessions.push({
+    ...data,
+    start_at: Date.now(),
+    created_at: Date.now()
+  });
+  saveDB();
+}
+function endSession(data) {
+  const s = db.sessions.find((x) => x.id === data.id);
+  if (!s) return;
+  s.end_at = Date.now();
+  s.actual_seconds = Math.floor((s.end_at - s.start_at) / 1e3);
+  s.focus_score = data.focus_score ?? null;
+  s.tags = data.tags ?? [];
+  saveDB();
+}
+ipcMain.handle("db:getDashboardData", async () => {
+  return getDashboardData();
+});
+ipcMain.handle(
+  "db:createProject",
+  async (_event, data) => {
+    createProject(data.id, data.name, data.color);
+    return { success: true };
+  }
+);
+ipcMain.handle(
+  "db:startSession",
+  async (_event, data) => {
+    startSession(data);
+    return { success: true };
+  }
+);
+ipcMain.handle(
+  "db:endSession",
+  async (_event, data) => {
+    endSession(data);
+    return { success: true };
+  }
+);
 const require2 = createRequire(import.meta.url);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path.join(__dirname, "..");
+const __dirname = path$1.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path$1.join(__dirname, "..");
+app.disableHardwareAcceleration();
+app.commandLine.appendSwitch("ignore-gpu-blocklist");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
-const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
-const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
+const MAIN_DIST = path$1.join(process.env.APP_ROOT, "dist-electron");
+const RENDERER_DIST = path$1.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path$1.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let mainWindow;
 let overlayWindow;
 function createOverlayWindow() {
@@ -34,7 +102,7 @@ function createOverlayWindow() {
     resizable: false,
     // Disable manual resizing
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs")
+      preload: path$1.join(__dirname, "preload.mjs")
     }
   });
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -49,7 +117,7 @@ function createOverlayWindow() {
   if (VITE_DEV_SERVER_URL) {
     overlayWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/overlay`);
   } else {
-    overlayWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
+    overlayWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
       hash: "overlay"
     });
   }
@@ -99,9 +167,9 @@ async function resizeOverlayToContent() {
 }
 function createWindow() {
   mainWindow = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
+    icon: path$1.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs")
+      preload: path$1.join(__dirname, "preload.mjs")
     }
   });
   mainWindow.webContents.on("did-finish-load", () => {
@@ -113,7 +181,7 @@ function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(RENDERER_DIST, "index.html"));
+    mainWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"));
   }
   mainWindow.on("minimize", () => {
     if (!overlayWindow) {
