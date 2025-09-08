@@ -5,7 +5,7 @@ import {
   createProject,
   startSession,
   endSession,
-} from "../src/db/db";
+} from "../../../src/db/db";
 
 ipcMain.handle("db:getDashboardData", async () => {
   return getDashboardData();

@@ -71,9 +71,6 @@ ipcMain.handle(
     return { success: true };
   }
 );
-const require2 = createRequire(import.meta.url);
-const __dirname = path$1.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path$1.join(__dirname, "..");
 class TimerManager {
   constructor() {
     __publicField(this, "timerState", {
@@ -204,6 +201,9 @@ class TimerManager {
     return { ...this.timerState };
   }
 }
+const require2 = createRequire(import.meta.url);
+const __dirname = path$1.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path$1.join(__dirname, "..");
 new TimerManager();
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
@@ -416,5 +416,7 @@ app.whenReady().then(createWindow);
 export {
   MAIN_DIST,
   RENDERER_DIST,
-  VITE_DEV_SERVER_URL
+  VITE_DEV_SERVER_URL,
+  mainWindow,
+  overlayWindow
 };
