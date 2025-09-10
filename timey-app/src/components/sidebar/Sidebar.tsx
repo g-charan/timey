@@ -1,4 +1,4 @@
-import { sidebarNavItems } from "@/features/dashboard/MainApp";
+import { sidebarNavGroups } from "@/features/dashboard/MainApp";
 import {
   Sidebar,
   SidebarContent,
@@ -13,7 +13,7 @@ import {
   useSidebar,
 } from "../ui/sidebar";
 
-export const AppSidebar = ({ setActiveView }) => {
+export const AppSidebar = ({ setActiveView }: { setActiveView: (view: string) => void }) => {
   const { state } = useSidebar();
   return (
     <Sidebar collapsible="icon">
@@ -23,24 +23,25 @@ export const AppSidebar = ({ setActiveView }) => {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {sidebarNavItems.map((item) => (
-                <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton
-                    // variant={activeView === item.id ? "secondary" : "ghost"}
-                    onClick={() => setActiveView(item.id)}
-                  >
-                    <item.icon className="mr-2 h-4 w-4" />
-                    <span>{item.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {sidebarNavGroups.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton
+                      onClick={() => setActiveView(item.id)}
+                    >
+                      <item.icon className="mr-2 h-4 w-4" />
+                      <span>{item.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
     </Sidebar>
   );

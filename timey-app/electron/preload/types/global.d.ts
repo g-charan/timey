@@ -20,6 +20,13 @@ declare global {
       resizeOverlay: () => void;
       startTracking: () => void;
       stopTracking: () => void;
+      openPath: (filePath: string) => Promise<{ success: boolean }>;
+      getAISuggestion: () => Promise<{
+        suggestion: { task: string; duration: number; confidence: number };
+        rationale: string[];
+      }>;
+      showOverlay: () => void;
+      hideOverlay: () => void;
     };
 
     // Timer functionality
@@ -67,6 +74,29 @@ declare global {
         focus_score?: number;
         tags?: string[];
       }) => Promise<{ success: boolean }>;
+      saveDailyShutdown: (data: {
+        wins?: string;
+        open_loops?: string;
+        tomorrow_intentions?: string;
+      }) => Promise<{ success: boolean }>;
+      getDailyShutdown: (date: number) => Promise<any>;
+      generateReport: () => Promise<{ path: string }>;
+      getTodayTasks: () => Promise<any[]>;
+      createTask: (payload: {
+        id: string;
+        title: string;
+        notes?: string;
+        links?: string[];
+        project_id?: string;
+        estimate_minutes?: number;
+        scheduled_for?: number;
+      }) => Promise<{ success: boolean }>;
+      updateTask: (id: string, changes: any) => Promise<{ success: boolean }>;
+      startTask: (id: string) => Promise<{ success: boolean }>;
+      stopTask: (
+        id: string,
+        complete: boolean
+      ) => Promise<{ success: boolean }>;
     };
 
     // Keep the old 'db' for backward compatibility (optional)

@@ -6,6 +6,7 @@ import { screen, ipcMain } from "electron";
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import "./handlers/db_handlers";
+import { loadDB } from "../../src/db/db";
 import { TimerManager } from "./handlers/timer_handlers";
 
 // The built directory structure
@@ -70,6 +71,8 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 // NEW: Renamed 'win' to 'mainWindow' for clarity and added 'overlayWindow'
 export let mainWindow: BrowserWindow | null;
 export let overlayWindow: BrowserWindow | null;
+export let tasksPopupWindow: BrowserWindow | null;
+export let metricsPopupWindow: BrowserWindow | null;
 
 // NEW: Function to create the overlay window
 function createOverlayWindow() {
@@ -94,7 +97,7 @@ function createOverlayWindow() {
     alwaysOnTop: true,
     resizable: false, // Disable manual resizing
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname, "index.mjs"),
     },
   });
 
@@ -107,6 +110,7 @@ function createOverlayWindow() {
   // NOTE: use this for Debugging
   // overlayWindow.webContents.openDevTools({ mode: "detach" });
   // mainWindow?.webContents.openDevTools({ mode: "detach" });
+  overlayWindow.webContents.openDevTools({ mode: "detach" });
 
   // Wait for content to load, then resize
   overlayWindow.webContents.on("did-finish-load", () => {
@@ -130,32 +134,55 @@ function createOverlayWindow() {
   });
 }
 
-// Function to resize overlay based on content
+// Function to resize overlay based on content including dropdowns
 async function resizeOverlayToContent() {
-  if (!overlayWindow) return;
+  if (!overlayWindow || overlayWindow.isDestroyed()) {
+    console.log('Overlay window not available for resize');
+    return;
+  }
 
   try {
-    // Execute script in renderer to get content dimensions
+    // Execute script in renderer to get content dimensions including dropdowns
     const dimensions = await overlayWindow.webContents.executeJavaScript(`
       (() => {
-        const element = document.querySelector('.overlay-container-horizontal');
-        if (element) {
+        const container = document.querySelector('.overlay-container-horizontal');
+        const dropdown = document.querySelector('.overlay-dropdown');
+        
+        if (container) {
           // Force a reflow to get accurate measurements
-          element.offsetHeight;
+          container.offsetHeight;
           
-          const rect = element.getBoundingClientRect();
-          const computedStyle = window.getComputedStyle(element);
+          const containerRect = container.getBoundingClientRect();
+          let totalWidth = Math.ceil(containerRect.width);
+          let totalHeight = Math.ceil(containerRect.height);
           
-          // Get exact dimensions without adding extra padding
-          const width = Math.ceil(rect.width);
-          const height = Math.ceil(rect.height);
+          // If dropdown is visible, include its dimensions
+          if (dropdown && dropdown.offsetParent !== null) {
+            const dropdownRect = dropdown.getBoundingClientRect();
+            
+            // Calculate total height including dropdown
+            const dropdownBottom = dropdownRect.bottom;
+            const containerBottom = containerRect.bottom;
+            
+            // If dropdown extends below container, add the extra height
+            if (dropdownBottom > containerBottom) {
+              totalHeight += Math.ceil(dropdownBottom - containerBottom) + 16; // 16px padding
+            }
+            
+            // If dropdown is wider than container, use dropdown width
+            const dropdownWidth = Math.ceil(dropdownRect.width);
+            if (dropdownWidth > totalWidth) {
+              totalWidth = dropdownWidth;
+            }
+          }
           
           return {
-            width: Math.max(width, 280), // Minimum width
-            height: Math.max(height, 44)  // Minimum height
+            width: Math.max(totalWidth, 280), // Minimum width
+            height: Math.max(totalHeight, 44), // Minimum height
+            hasDropdown: dropdown && dropdown.offsetParent !== null
           };
         }
-        return { width: 320, height: 44 }; // fallback
+        return { width: 320, height: 44, hasDropdown: false }; // fallback
       })()
     `);
 
@@ -177,7 +204,7 @@ async function resizeOverlayToContent() {
         20
       );
 
-      console.log("Overlay resized to:", dimensions);
+      console.log("Overlay resized to:", dimensions, "Dropdown visible:", dimensions.hasDropdown);
     }
   } catch (error) {
     console.error("Failed to resize overlay:", error);
@@ -186,9 +213,9 @@ async function resizeOverlayToContent() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
+    icon: path.join(process.env.VITE_PUBLIC || "", "electron-vite.svg"),
     webPreferences: {
-      preload: path.join(__dirname, "preload.mjs"),
+      preload: path.join(__dirname, "index.mjs"),
     },
   });
 
@@ -199,6 +226,9 @@ function createWindow() {
       new Date().toLocaleString()
     );
   });
+
+  // Open DevTools for the main window to debug blank screen
+  mainWindow.webContents.openDevTools({ mode: "detach" });
 
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL);
@@ -214,40 +244,58 @@ function createWindow() {
   });
 
   mainWindow.on("restore", () => {
-    if (overlayWindow) {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close();
       overlayWindow = null;
-    }
-  });
-
-  mainWindow.on("blur", () => {
-    // If the overlay doesn't already exist, create it
-    if (mainWindow && !mainWindow.isFullScreen()) {
-      // If the overlay doesn't already exist, create it
-      if (!overlayWindow) {
-        createOverlayWindow();
-      }
     }
   });
 
   // Listen for when the main window gains focus
   mainWindow.on("focus", () => {
     // If the overlay exists, close it
-    if (overlayWindow) {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close();
-      overlayWindow = null; // Reset the variable
+      overlayWindow = null;
     }
+  });
+
+  // Close all windows and quit app when main window is closed
+  mainWindow.on("closed", () => {
+    // Close overlay window if it exists
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.close();
+      overlayWindow = null;
+    }
+    
+    // Close popup windows if they exist
+    if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
+      tasksPopupWindow.close();
+      tasksPopupWindow = null;
+    }
+    
+    if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
+      metricsPopupWindow.close();
+      metricsPopupWindow = null;
+    }
+    
+    // Clear tracking interval if running
+    if (trackingInterval) {
+      clearInterval(trackingInterval);
+      trackingInterval = null;
+    }
+    
+    // Set main window to null
+    mainWindow = null;
+    
+    // Quit the application completely
+    app.quit();
   });
 }
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Quit when all windows are closed
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-    mainWindow = null;
-  }
+  // Always quit the app when all windows are closed, even on macOS
+  app.quit();
 });
 
 app.on("activate", () => {
@@ -260,9 +308,10 @@ app.on("activate", () => {
 
 // IPC handlers
 ipcMain.on("restore-main-window", () => {
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.restore();
-    if (overlayWindow) {
+    mainWindow.focus();
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close();
       overlayWindow = null;
     }
@@ -333,9 +382,148 @@ ipcMain.on("stop-tracking", () => {
   appUsage.clear(); // Clear the map for the next session
 });
 
+// Function to create tasks popup window
+function createTasksPopupWindow() {
+  if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
+    tasksPopupWindow.focus();
+    return;
+  }
+
+  const overlayBounds = overlayWindow?.getBounds();
+  if (!overlayBounds) return;
+
+  tasksPopupWindow = new BrowserWindow({
+    width: 320,
+    height: 400,
+    x: overlayBounds.x,
+    y: overlayBounds.y + overlayBounds.height + 8,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      preload: path.join(__dirname, "index.mjs"),
+    },
+  });
+
+  tasksPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  tasksPopupWindow.setAlwaysOnTop(true, "screen-saver");
+
+  if (VITE_DEV_SERVER_URL) {
+    tasksPopupWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/tasks-popup`);
+  } else {
+    tasksPopupWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
+      hash: "tasks-popup",
+    });
+  }
+
+  tasksPopupWindow.on("blur", () => {
+    if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
+      tasksPopupWindow.close();
+      tasksPopupWindow = null;
+    }
+  });
+
+  tasksPopupWindow.on("closed", () => {
+    tasksPopupWindow = null;
+  });
+}
+
+// Function to create metrics popup window
+function createMetricsPopupWindow() {
+  if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
+    metricsPopupWindow.focus();
+    return;
+  }
+
+  const overlayBounds = overlayWindow?.getBounds();
+  if (!overlayBounds) return;
+
+  metricsPopupWindow = new BrowserWindow({
+    width: 320,
+    height: 350,
+    x: overlayBounds.x,
+    y: overlayBounds.y + overlayBounds.height + 8,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      preload: path.join(__dirname, "index.mjs"),
+    },
+  });
+
+  metricsPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  metricsPopupWindow.setAlwaysOnTop(true, "screen-saver");
+
+  if (VITE_DEV_SERVER_URL) {
+    metricsPopupWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/metrics-popup`);
+  } else {
+    metricsPopupWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
+      hash: "metrics-popup",
+    });
+  }
+
+  metricsPopupWindow.on("blur", () => {
+    if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
+      metricsPopupWindow.close();
+      metricsPopupWindow = null;
+    }
+  });
+
+  metricsPopupWindow.on("closed", () => {
+    metricsPopupWindow = null;
+  });
+}
+
 // NEW: Handle dynamic resize requests from renderer
 ipcMain.on("resize-overlay", () => {
-  resizeOverlayToContent();
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    resizeOverlayToContent();
+  }
 });
 
-app.whenReady().then(createWindow);
+// Handle popup window requests
+ipcMain.on("show-tasks-popup", () => {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    createTasksPopupWindow();
+  }
+});
+
+ipcMain.on("show-metrics-popup", () => {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    createMetricsPopupWindow();
+  }
+});
+
+ipcMain.on("close-popups", () => {
+  if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
+    tasksPopupWindow.close();
+    tasksPopupWindow = null;
+  }
+  if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
+    metricsPopupWindow.close();
+    metricsPopupWindow = null;
+  }
+});
+
+// Show/Hide overlay programmatically (Blitz Mode)
+ipcMain.on("overlay:show", () => {
+  if (!overlayWindow) {
+    createOverlayWindow();
+  } else {
+    overlayWindow.showInactive();
+  }
+});
+ipcMain.on("overlay:hide", () => {
+  if (overlayWindow) overlayWindow.close();
+});
+
+app.whenReady().then(() => {
+  try {
+    loadDB();
+  } catch (e) {
+    console.error("Failed to load local DB:", e);
+  }
+  createWindow();
+});

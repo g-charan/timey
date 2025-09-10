@@ -20,4 +20,33 @@ contextBridge.exposeInMainWorld("dbAPI", {
 
   endSession: (data: { id: string; focus_score?: number; tags?: string[] }) =>
     ipcRenderer.invoke("db:endSession", data),
+
+  // Shutdown ritual
+  saveDailyShutdown: (data: {
+    wins?: string;
+    open_loops?: string;
+    tomorrow_intentions?: string;
+  }) => ipcRenderer.invoke("db:saveDailyShutdown", data),
+  getDailyShutdown: (date: number) =>
+    ipcRenderer.invoke("db:getDailyShutdown", date),
+
+  // Reports
+  generateReport: () => ipcRenderer.invoke("db:generateReport"),
+
+  // Tasks
+  getTodayTasks: () => ipcRenderer.invoke("tasks:getToday"),
+  createTask: (payload: {
+    id: string;
+    title: string;
+    notes?: string;
+    links?: string[];
+    project_id?: string;
+    estimate_minutes?: number;
+    scheduled_for?: number;
+  }) => ipcRenderer.invoke("tasks:create", payload),
+  updateTask: (id: string, changes: any) =>
+    ipcRenderer.invoke("tasks:update", id, changes),
+  startTask: (id: string) => ipcRenderer.invoke("tasks:start", id),
+  stopTask: (id: string, complete: boolean) =>
+    ipcRenderer.invoke("tasks:stop", id, complete),
 });

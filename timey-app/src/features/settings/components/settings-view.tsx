@@ -27,18 +27,7 @@ import {
   Upload,
   Trash2,
 } from "lucide-react";
-import { useState, ReactNode, useEffect } from "react";
-
-// --- Hooks ---
-const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  return isMobile;
-};
+import { useState, ReactNode } from "react";
 
 // --- Settings Page: Refactored and Production Ready ---
 
@@ -84,7 +73,17 @@ const SettingItem = ({
   </div>
 );
 
-const AppearanceSettings = ({ settings, onChange }) => (
+type ThemeSettings = typeof initialSettings.theme;
+type FocusSettingsType = typeof initialSettings.focus;
+type NotificationSettingsType = typeof initialSettings.notifications;
+
+const AppearanceSettings = ({
+  settings,
+  onChange,
+}: {
+  settings: ThemeSettings;
+  onChange: (category: keyof SettingsType, key: string, value: any) => void;
+}) => (
   <Card>
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
@@ -130,7 +129,13 @@ const AppearanceSettings = ({ settings, onChange }) => (
   </Card>
 );
 
-const FocusSettings = ({ settings, onChange }) => (
+const FocusSettings = ({
+  settings,
+  onChange,
+}: {
+  settings: FocusSettingsType;
+  onChange: (category: keyof SettingsType, key: string, value: any) => void;
+}) => (
   <Card>
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
@@ -204,7 +209,13 @@ const FocusSettings = ({ settings, onChange }) => (
   </Card>
 );
 
-const NotificationSettings = ({ settings, onChange }) => (
+const NotificationSettings = ({
+  settings,
+  onChange,
+}: {
+  settings: NotificationSettingsType;
+  onChange: (category: keyof SettingsType, key: string, value: any) => void;
+}) => (
   <Card>
     <CardHeader>
       <CardTitle className="flex items-center gap-2">
@@ -249,6 +260,7 @@ const DataSettings = () => (
   <Card>
     <CardHeader>
       <CardTitle>Data Management</CardTitle>
+      <CardDescription>Local-first storage; sync coming soon</CardDescription>
     </CardHeader>
     <CardContent className="flex flex-col sm:flex-row gap-2">
       <Button variant="outline" className="flex-1">
@@ -260,6 +272,57 @@ const DataSettings = () => (
       <Button variant="destructive" className="flex-1">
         <Trash2 className="w-4 h-4 mr-2" /> Clear All Data
       </Button>
+    </CardContent>
+  </Card>
+);
+
+const IntegrationsSettings = () => (
+  <Card>
+    <CardHeader>
+      <CardTitle>Integrations</CardTitle>
+      <CardDescription>Connect services (coming soon)</CardDescription>
+    </CardHeader>
+    <CardContent className="space-y-3">
+      <div className="flex items-center justify-between p-3 rounded border">
+        <div>
+          <div className="font-medium">Google Calendar</div>
+          <div className="text-xs text-muted-foreground">
+            Read-only calendar import (OAuth stub)
+          </div>
+        </div>
+        <Button variant="outline" size="sm" disabled>
+          Connect
+        </Button>
+      </div>
+      <div className="flex items-center justify-between p-3 rounded border">
+        <div>
+          <div className="font-medium">Outlook Calendar</div>
+          <div className="text-xs text-muted-foreground">
+            Read-only calendar import (OAuth stub)
+          </div>
+        </div>
+        <Button variant="outline" size="sm" disabled>
+          Connect
+        </Button>
+      </div>
+      <div className="flex items-center justify-between p-3 rounded border">
+        <div>
+          <div className="font-medium">Shareable Reports</div>
+          <div className="text-xs text-muted-foreground">
+            Generate local HTML reports (available in Dashboard)
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={async () => {
+            const result = await window.dbAPI.generateReport();
+            if (result?.path) await window.appAPI.openPath(result.path);
+          }}
+        >
+          Generate
+        </Button>
+      </div>
     </CardContent>
   </Card>
 );
@@ -303,6 +366,7 @@ export const SettingsView = () => {
         onChange={handleSettingChange}
       />
       <DataSettings />
+      <IntegrationsSettings />
 
       <div className="mt-4">
         <Button className="w-full">
