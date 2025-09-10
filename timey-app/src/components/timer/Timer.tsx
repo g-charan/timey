@@ -19,6 +19,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { Slider } from "@/components/ui/slider";
+import { useStartSession, useEndSession } from "@/hooks/use-database";
 
 // ---------------- Helper Components ---------------- //
 
@@ -95,10 +96,15 @@ export function Timer() {
 
   const [focusDuration, setFocusDuration] = useState(25); // in minutes
   const [isSetupComplete, setIsSetupComplete] = useState(false);
+  const [magicInput, setMagicInput] = useState("");
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Timer state
   const [isActive, setIsActive] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(focusDuration * 60);
+
+  const startSessionMutation = useStartSession();
+  const endSessionMutation = useEndSession();
 
   // Reset timer when duration changes (but only if not active)
   useEffect(() => {
@@ -115,19 +121,37 @@ export function Timer() {
     setTimeRemaining(focusDuration * 60);
     setIsActive(true);
     setIsSetupComplete(true);
-    window.electronAPI?.startTracking?.(); // safe call
+    window.appAPI?.startTracking?.(); // safe call
+
+    const id = crypto.randomUUID();
+    setSessionId(id);
+    startSessionMutation.mutate({
+      id,
+      project_id: undefined,
+      task: selectedTag,
+      planned_duration: focusDuration * 60,
+    });
   };
 
   const stopSession = () => {
     setIsActive(false);
-    window.electronAPI?.stopTracking?.();
+    window.appAPI?.stopTracking?.();
+
+    if (sessionId) {
+      endSessionMutation.mutate({ id: sessionId, focus_score: undefined, tags: [selectedTag] });
+      setSessionId(null);
+    }
   };
 
   const resetSession = () => {
     setIsActive(false);
     setIsSetupComplete(false);
     setTimeRemaining(focusDuration * 60);
-    window.electronAPI?.stopTracking?.();
+    window.appAPI?.stopTracking?.();
+    if (sessionId) {
+      endSessionMutation.mutate({ id: sessionId, focus_score: undefined, tags: [selectedTag] });
+      setSessionId(null);
+    }
   };
 
   // Countdown logic
@@ -135,7 +159,11 @@ export function Timer() {
     if (!isActive) return;
     if (timeRemaining <= 0) {
       setIsActive(false);
-      window.electronAPI?.stopTracking?.();
+      window.appAPI?.stopTracking?.();
+      if (sessionId) {
+        endSessionMutation.mutate({ id: sessionId, focus_score: undefined, tags: [selectedTag] });
+        setSessionId(null);
+      }
       return;
     }
     const interval = setInterval(
@@ -162,6 +190,29 @@ export function Timer() {
         </div>
 
         <div className="w-full space-y-6">
+          {/* MagicInput */}
+          <div className="space-y-2">
+            <Label>Describe your focus (e.g., "Write spec for 45m")</Label>
+            <input
+              className="border rounded w-full p-2 bg-background text-foreground"
+              placeholder="What will you focus on?"
+              value={magicInput}
+              onChange={(e) => {
+                const val = e.target.value;
+                setMagicInput(val);
+                // lightweight duration parse: e.g., 45m, 30 min, 2h
+                const m = val.match(/(\d+)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours)/i);
+                if (m) {
+                  const n = parseInt(m[1], 10);
+                  const unit = m[2].toLowerCase();
+                  const minutes = /(h|hr|hrs|hour|hours)/.test(unit) ? n * 60 : n;
+                  const clamped = Math.max(5, Math.min(90, minutes));
+                  setFocusDuration(clamped);
+                }
+              }}
+            />
+          </div>
+
           {/* Tags */}
           <div className="space-y-2">
             <Label>What is your main focus?</Label>

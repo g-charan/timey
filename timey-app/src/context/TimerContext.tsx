@@ -58,13 +58,13 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
       // You can add completion notifications here
     };
 
-    if (window.electronAPI) {
+    if (window.timerAPI) {
       // Listen for timer updates from main process
-      window.electronAPI.onTimerUpdate(handleTimerUpdate);
-      window.electronAPI.onTimerComplete(handleTimerComplete);
+      window.timerAPI.onTimerUpdate(handleTimerUpdate);
+      window.timerAPI.onTimerComplete(handleTimerComplete);
 
       // Get initial timer state
-      window.electronAPI.getTimerState().then((state: TimerState) => {
+      window.timerAPI.getTimerState().then((state: TimerState) => {
         if (state) {
           console.log("Initial timer state:", state);
           setTimerState(state);
@@ -73,20 +73,20 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
     }
 
     return () => {
-      if (window.electronAPI) {
-        window.electronAPI.removeTimerUpdateListener(handleTimerUpdate);
-        window.electronAPI.removeTimerCompleteListener(handleTimerComplete);
+      if (window.timerAPI) {
+        window.timerAPI.removeTimerUpdateListener(handleTimerUpdate);
+        window.timerAPI.removeTimerCompleteListener(handleTimerComplete);
       }
     };
   }, []);
 
   const startTimer = async (duration: number, sessionName: string) => {
     console.log("TimerContext: Starting timer", { duration, sessionName });
-    if (window.electronAPI) {
+    if (window.timerAPI) {
       // Convert minutes to seconds
       const durationInSeconds = duration * 60;
       try {
-        const result = await window.electronAPI.startTimer(
+        const result = await window.timerAPI.startTimer(
           durationInSeconds,
           sessionName
         );
@@ -99,9 +99,9 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
 
   const pauseTimer = async () => {
     console.log("TimerContext: Pausing timer");
-    if (window.electronAPI) {
+    if (window.timerAPI) {
       try {
-        const result = await window.electronAPI.pauseTimer();
+        const result = await window.timerAPI.pauseTimer();
         console.log("Timer paused:", result);
       } catch (error) {
         console.error("Failed to pause timer:", error);
@@ -111,9 +111,9 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
 
   const resumeTimer = async () => {
     console.log("TimerContext: Resuming timer");
-    if (window.electronAPI) {
+    if (window.timerAPI) {
       try {
-        const result = await window.electronAPI.resumeTimer();
+        const result = await window.timerAPI.resumeTimer();
         console.log("Timer resumed:", result);
       } catch (error) {
         console.error("Failed to resume timer:", error);
@@ -123,9 +123,9 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
 
   const resetTimer = async () => {
     console.log("TimerContext: Resetting timer");
-    if (window.electronAPI) {
+    if (window.timerAPI) {
       try {
-        const result = await window.electronAPI.stopTimer();
+        const result = await window.timerAPI.stopTimer();
         console.log("Timer stopped/reset:", result);
       } catch (error) {
         console.error("Failed to stop timer:", error);
@@ -135,9 +135,9 @@ export const TimerProvider: React.FC<TimerProviderProps> = ({ children }) => {
 
   const updateSessionName = async (sessionName: string) => {
     console.log("TimerContext: Updating session name", sessionName);
-    if (window.electronAPI) {
+    if (window.timerAPI) {
       try {
-        const result = await window.electronAPI.updateSessionName(sessionName);
+        const result = await window.timerAPI.updateSessionName(sessionName);
         console.log("Session name updated:", result);
       } catch (error) {
         console.error("Failed to update session name:", error);

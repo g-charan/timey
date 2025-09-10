@@ -4,14 +4,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 export function useDashboardData() {
   return useQuery({
     queryKey: ["dashboard"],
-    queryFn: () => window.db.getDashboardData(),
+    queryFn: () => window.dbAPI.getDashboardData(),
   });
 }
 
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: window.db.createProject,
+    mutationFn: window.dbAPI.createProject,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -21,7 +21,7 @@ export function useCreateProject() {
 export function useStartSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: window.db.startSession,
+    mutationFn: window.dbAPI.startSession,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
@@ -31,7 +31,7 @@ export function useStartSession() {
 export function useEndSession() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: window.db.endSession,
+    mutationFn: window.dbAPI.endSession,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },

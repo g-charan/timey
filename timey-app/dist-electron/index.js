@@ -1,21 +1,44 @@
 var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
-import { app, ipcMain, BrowserWindow, screen } from "electron";
+import { app, ipcMain, shell, BrowserWindow, screen } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path$1 from "node:path";
 import path from "path";
 import fs from "fs";
 const dbPath = path.join(app.getPath("userData"), "focus.json");
-let db = { projects: [], milestones: [], sessions: [] };
+let db = {
+  projects: [],
+  milestones: [],
+  sessions: [],
+  daily_shutdowns: [],
+  tasks: []
+};
+function loadDB() {
+  if (fs.existsSync(dbPath)) {
+    const loaded = JSON.parse(fs.readFileSync(dbPath, "utf-8"));
+    db = {
+      projects: Array.isArray(loaded.projects) ? loaded.projects : [],
+      milestones: Array.isArray(loaded.milestones) ? loaded.milestones : [],
+      sessions: Array.isArray(loaded.sessions) ? loaded.sessions : [],
+      daily_shutdowns: Array.isArray(loaded.daily_shutdowns) ? loaded.daily_shutdowns : [],
+      tasks: Array.isArray(loaded.tasks) ? loaded.tasks : []
+    };
+  } else {
+    seedIfEmpty();
+    saveDB();
+  }
+}
 function saveDB() {
   fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
 }
 function getDashboardData() {
   return {
     projects: db.projects,
-    recentSessions: db.sessions.slice(-50).reverse()
+    recentSessions: db.sessions.slice(-50).reverse(),
+    streak: computeStreak(),
+    todayTasks: getTodayTasks()
   };
 }
 function createProject(id, name, color) {
@@ -47,6 +70,156 @@ function endSession(data) {
   s.tags = data.tags ?? [];
   saveDB();
 }
+function saveDailyShutdown(data) {
+  const day = startOfDayTs(Date.now());
+  const existing = db.daily_shutdowns.find((d) => d.date === day);
+  if (existing) {
+    existing.wins = data.wins;
+    existing.open_loops = data.open_loops;
+    existing.tomorrow_intentions = data.tomorrow_intentions;
+  } else {
+    db.daily_shutdowns.push({
+      id: `shutdown-${day}`,
+      date: day,
+      created_at: Date.now(),
+      ...data
+    });
+  }
+  saveDB();
+}
+function getDailyShutdown(date) {
+  const day = startOfDayTs(date);
+  return db.daily_shutdowns.find((d) => d.date === day) || null;
+}
+function computeStreak() {
+  let streak = 0;
+  let dayCursor = startOfDayTs(Date.now());
+  for (let i = 0; i < 365; i++) {
+    const hasShutdown = !!db.daily_shutdowns.find((d) => d.date === dayCursor);
+    const daySessions = db.sessions.filter(
+      (s) => inSameDay(s.start_at, dayCursor)
+    );
+    const totalSecs = daySessions.reduce(
+      (sum, s) => sum + (s.actual_seconds || 0),
+      0
+    );
+    if (hasShutdown || totalSecs >= 30 * 60) {
+      streak += 1;
+      dayCursor -= 24 * 3600 * 1e3;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+function startOfDayTs(ts) {
+  const d = new Date(ts);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+function inSameDay(ts, dayStart) {
+  const start = dayStart;
+  const end = start + 24 * 3600 * 1e3 - 1;
+  return ts >= start && ts <= end;
+}
+function getTodayTasks() {
+  const today = startOfDayTs(Date.now());
+  return db.tasks.filter((t) => (t.scheduled_for ?? today) === today);
+}
+function createTask(task) {
+  const now = Date.now();
+  db.tasks.push({
+    id: task.id,
+    title: task.title,
+    notes: task.notes,
+    links: task.links ?? [],
+    project_id: task.project_id,
+    estimate_minutes: task.estimate_minutes,
+    actual_seconds: 0,
+    status: "todo",
+    scheduled_for: task.scheduled_for ?? startOfDayTs(now),
+    created_at: now,
+    updated_at: now
+  });
+  saveDB();
+}
+function updateTask(id, changes) {
+  const t = db.tasks.find((x) => x.id === id);
+  if (!t) return;
+  Object.assign(t, changes);
+  t.updated_at = Date.now();
+  saveDB();
+}
+function startTaskTimer(id) {
+  const t = db.tasks.find((x) => x.id === id);
+  if (!t) return;
+  t.status = "in_progress";
+  t.started_at = Date.now();
+  t.updated_at = Date.now();
+  saveDB();
+}
+function stopTaskTimer(id, complete) {
+  const t = db.tasks.find((x) => x.id === id);
+  if (!t) return;
+  if (t.started_at) {
+    const add = Math.max(0, Math.floor((Date.now() - t.started_at) / 1e3));
+    t.actual_seconds = (t.actual_seconds || 0) + add;
+  }
+  t.started_at = void 0;
+  t.status = complete ? "done" : "todo";
+  t.updated_at = Date.now();
+  saveDB();
+}
+function seedIfEmpty() {
+  if (db.projects.length === 0 && db.sessions.length === 0) {
+    const now = Date.now();
+    db.projects.push(
+      {
+        id: "proj-quick-start",
+        name: "Quick Start",
+        color: "#3b82f6",
+        total_seconds: 0,
+        avg_focus_score: 0,
+        created_at: now,
+        updated_at: now
+      },
+      {
+        id: "proj-deep-work",
+        name: "Deep Work",
+        color: "#10b981",
+        total_seconds: 0,
+        avg_focus_score: 0,
+        created_at: now,
+        updated_at: now
+      }
+    );
+    db.sessions.push({
+      id: "sess-sample-1",
+      project_id: "proj-quick-start",
+      task: "Sample focus block",
+      planned_duration: 1500,
+      start_at: now - 36e5,
+      end_at: now - 33e5,
+      actual_seconds: 300,
+      focus_score: 0.8,
+      tags: ["demo"],
+      created_at: now - 36e5
+    });
+    db.tasks.push({
+      id: "task-sample-1",
+      title: "Plan sprint backlog",
+      notes: "Outline priorities and owner",
+      links: [],
+      project_id: "proj-quick-start",
+      estimate_minutes: 45,
+      actual_seconds: 0,
+      status: "todo",
+      scheduled_for: startOfDayTs(now),
+      created_at: now,
+      updated_at: now
+    });
+  }
+}
 ipcMain.handle("db:getDashboardData", async () => {
   return getDashboardData();
 });
@@ -71,6 +244,83 @@ ipcMain.handle(
     return { success: true };
   }
 );
+ipcMain.handle(
+  "db:saveDailyShutdown",
+  async (_event, data) => {
+    saveDailyShutdown(data);
+    return { success: true };
+  }
+);
+ipcMain.handle("db:getDailyShutdown", async (_event, date) => {
+  return getDailyShutdown(date);
+});
+ipcMain.handle("db:generateReport", async () => {
+  const data = getDashboardData();
+  const reportHtml = `<!doctype html><html><head><meta charset="utf-8"><title>Timey Report</title>
+    <style>body{font-family:ui-sans-serif,system-ui;padding:24px;color:#111} h1{margin-bottom:4px} table{width:100%;border-collapse:collapse;margin-top:16px} th,td{border:1px solid #ddd;padding:8px;text-align:left} th{background:#f8f8f8}</style>
+  </head><body>
+  <h1>Timey Report</h1>
+  <p>Generated: ${(/* @__PURE__ */ new Date()).toLocaleString()}</p>
+  <h2>Recent Sessions</h2>
+  <table><thead><tr><th>Task</th><th>Planned (min)</th><th>Actual (min)</th><th>Start</th></tr></thead><tbody>
+  ${data.recentSessions.slice(0, 20).map(
+    (s) => `<tr><td>${s.task ?? "Session"}</td><td>${Math.round(
+      (s.planned_duration || 0) / 60
+    )}</td><td>${Math.round(
+      (s.actual_seconds || 0) / 60
+    )}</td><td>${new Date(s.start_at).toLocaleString()}</td></tr>`
+  ).join("")}
+  </tbody></table>
+  </body></html>`;
+  const outDir = path.join(app.getPath("userData"), "reports");
+  fs.mkdirSync(outDir, { recursive: true });
+  const outPath = path.join(outDir, `report-${Date.now()}.html`);
+  fs.writeFileSync(outPath, reportHtml);
+  return { path: outPath };
+});
+ipcMain.handle("app:openPath", async (_e, filePath) => {
+  await shell.openPath(filePath);
+  return { success: true };
+});
+ipcMain.handle("ai:getSuggestion", async () => {
+  const data = getDashboardData();
+  const sessions = data.recentSessions;
+  const last = sessions[0];
+  const avgMins = Math.round(
+    sessions.slice(0, 10).reduce((sum, s) => sum + (s.actual_seconds || 0), 0) / Math.max(1, Math.min(10, sessions.length)) / 60
+  );
+  const duration = Math.max(25, Math.min(60, avgMins || 30));
+  const task = (last == null ? void 0 : last.task) || "Deep Work";
+  const rationale = [
+    `Recent sessions average about ${duration} minutes; keeping it consistent aids momentum.`,
+    (last == null ? void 0 : last.task) ? `You last worked on “${last.task}”; continuity reduces context switching.` : `Defaulting to deep work since no prior task found.`,
+    `Consider a short break after to prevent fatigue.`
+  ];
+  return {
+    suggestion: { task, duration, confidence: 0.7 },
+    rationale
+  };
+});
+ipcMain.handle("tasks:getToday", async () => getTodayTasks());
+ipcMain.handle(
+  "tasks:create",
+  async (_e, payload) => {
+    createTask(payload);
+    return { success: true };
+  }
+);
+ipcMain.handle("tasks:update", async (_e, id, changes) => {
+  updateTask(id, changes);
+  return { success: true };
+});
+ipcMain.handle("tasks:start", async (_e, id) => {
+  startTaskTimer(id);
+  return { success: true };
+});
+ipcMain.handle("tasks:stop", async (_e, id, complete) => {
+  stopTaskTimer(id, complete);
+  return { success: true };
+});
 class TimerManager {
   constructor() {
     __publicField(this, "timerState", {
@@ -213,6 +463,8 @@ const RENDERER_DIST = path$1.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path$1.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let mainWindow;
 let overlayWindow;
+let tasksPopupWindow;
+let metricsPopupWindow;
 function createOverlayWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
@@ -236,13 +488,14 @@ function createOverlayWindow() {
     resizable: false,
     // Disable manual resizing
     webPreferences: {
-      preload: path$1.join(__dirname, "preload.mjs")
+      preload: path$1.join(__dirname, "index.mjs")
     }
   });
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setFullScreenable(false);
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
   overlayWindow.setIgnoreMouseEvents(false);
+  overlayWindow.webContents.openDevTools({ mode: "detach" });
   overlayWindow.webContents.on("did-finish-load", () => {
     setTimeout(() => {
       resizeOverlayToContent();
@@ -260,28 +513,51 @@ function createOverlayWindow() {
   });
 }
 async function resizeOverlayToContent() {
-  if (!overlayWindow) return;
+  if (!overlayWindow || overlayWindow.isDestroyed()) {
+    console.log("Overlay window not available for resize");
+    return;
+  }
   try {
     const dimensions = await overlayWindow.webContents.executeJavaScript(`
       (() => {
-        const element = document.querySelector('.overlay-container-horizontal');
-        if (element) {
+        const container = document.querySelector('.overlay-container-horizontal');
+        const dropdown = document.querySelector('.overlay-dropdown');
+        
+        if (container) {
           // Force a reflow to get accurate measurements
-          element.offsetHeight;
+          container.offsetHeight;
           
-          const rect = element.getBoundingClientRect();
-          const computedStyle = window.getComputedStyle(element);
+          const containerRect = container.getBoundingClientRect();
+          let totalWidth = Math.ceil(containerRect.width);
+          let totalHeight = Math.ceil(containerRect.height);
           
-          // Get exact dimensions without adding extra padding
-          const width = Math.ceil(rect.width);
-          const height = Math.ceil(rect.height);
+          // If dropdown is visible, include its dimensions
+          if (dropdown && dropdown.offsetParent !== null) {
+            const dropdownRect = dropdown.getBoundingClientRect();
+            
+            // Calculate total height including dropdown
+            const dropdownBottom = dropdownRect.bottom;
+            const containerBottom = containerRect.bottom;
+            
+            // If dropdown extends below container, add the extra height
+            if (dropdownBottom > containerBottom) {
+              totalHeight += Math.ceil(dropdownBottom - containerBottom) + 16; // 16px padding
+            }
+            
+            // If dropdown is wider than container, use dropdown width
+            const dropdownWidth = Math.ceil(dropdownRect.width);
+            if (dropdownWidth > totalWidth) {
+              totalWidth = dropdownWidth;
+            }
+          }
           
           return {
-            width: Math.max(width, 280), // Minimum width
-            height: Math.max(height, 44)  // Minimum height
+            width: Math.max(totalWidth, 280), // Minimum width
+            height: Math.max(totalHeight, 44), // Minimum height
+            hasDropdown: dropdown && dropdown.offsetParent !== null
           };
         }
-        return { width: 320, height: 44 }; // fallback
+        return { width: 320, height: 44, hasDropdown: false }; // fallback
       })()
     `);
     const primaryDisplay = screen.getPrimaryDisplay();
@@ -293,7 +569,7 @@ async function resizeOverlayToContent() {
         Math.max(0, screenWidth - dimensions.width - 20),
         20
       );
-      console.log("Overlay resized to:", dimensions);
+      console.log("Overlay resized to:", dimensions, "Dropdown visible:", dimensions.hasDropdown);
     }
   } catch (error) {
     console.error("Failed to resize overlay:", error);
@@ -301,9 +577,9 @@ async function resizeOverlayToContent() {
 }
 function createWindow() {
   mainWindow = new BrowserWindow({
-    icon: path$1.join(process.env.VITE_PUBLIC, "electron-vite.svg"),
+    icon: path$1.join(process.env.VITE_PUBLIC || "", "electron-vite.svg"),
     webPreferences: {
-      preload: path$1.join(__dirname, "preload.mjs")
+      preload: path$1.join(__dirname, "index.mjs")
     }
   });
   mainWindow.webContents.on("did-finish-load", () => {
@@ -312,6 +588,7 @@ function createWindow() {
       (/* @__PURE__ */ new Date()).toLocaleString()
     );
   });
+  mainWindow.webContents.openDevTools({ mode: "detach" });
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL);
   } else {
@@ -323,30 +600,40 @@ function createWindow() {
     }
   });
   mainWindow.on("restore", () => {
-    if (overlayWindow) {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close();
       overlayWindow = null;
-    }
-  });
-  mainWindow.on("blur", () => {
-    if (mainWindow && !mainWindow.isFullScreen()) {
-      if (!overlayWindow) {
-        createOverlayWindow();
-      }
     }
   });
   mainWindow.on("focus", () => {
-    if (overlayWindow) {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close();
       overlayWindow = null;
     }
   });
+  mainWindow.on("closed", () => {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.close();
+      overlayWindow = null;
+    }
+    if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
+      tasksPopupWindow.close();
+      tasksPopupWindow = null;
+    }
+    if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
+      metricsPopupWindow.close();
+      metricsPopupWindow = null;
+    }
+    if (trackingInterval) {
+      clearInterval(trackingInterval);
+      trackingInterval = null;
+    }
+    mainWindow = null;
+    app.quit();
+  });
 }
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-    mainWindow = null;
-  }
+  app.quit();
 });
 app.on("activate", () => {
   if (BrowserWindow.getAllWindows().length === 0) {
@@ -354,9 +641,10 @@ app.on("activate", () => {
   }
 });
 ipcMain.on("restore-main-window", () => {
-  if (mainWindow) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.restore();
-    if (overlayWindow) {
+    mainWindow.focus();
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
       overlayWindow.close();
       overlayWindow = null;
     }
@@ -409,14 +697,133 @@ ipcMain.on("stop-tracking", () => {
   console.log("--------------------");
   appUsage.clear();
 });
+function createTasksPopupWindow() {
+  if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
+    tasksPopupWindow.focus();
+    return;
+  }
+  const overlayBounds = overlayWindow == null ? void 0 : overlayWindow.getBounds();
+  if (!overlayBounds) return;
+  tasksPopupWindow = new BrowserWindow({
+    width: 320,
+    height: 400,
+    x: overlayBounds.x,
+    y: overlayBounds.y + overlayBounds.height + 8,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      preload: path$1.join(__dirname, "index.mjs")
+    }
+  });
+  tasksPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  tasksPopupWindow.setAlwaysOnTop(true, "screen-saver");
+  if (VITE_DEV_SERVER_URL) {
+    tasksPopupWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/tasks-popup`);
+  } else {
+    tasksPopupWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
+      hash: "tasks-popup"
+    });
+  }
+  tasksPopupWindow.on("blur", () => {
+    if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
+      tasksPopupWindow.close();
+      tasksPopupWindow = null;
+    }
+  });
+  tasksPopupWindow.on("closed", () => {
+    tasksPopupWindow = null;
+  });
+}
+function createMetricsPopupWindow() {
+  if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
+    metricsPopupWindow.focus();
+    return;
+  }
+  const overlayBounds = overlayWindow == null ? void 0 : overlayWindow.getBounds();
+  if (!overlayBounds) return;
+  metricsPopupWindow = new BrowserWindow({
+    width: 320,
+    height: 350,
+    x: overlayBounds.x,
+    y: overlayBounds.y + overlayBounds.height + 8,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    resizable: false,
+    webPreferences: {
+      preload: path$1.join(__dirname, "index.mjs")
+    }
+  });
+  metricsPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  metricsPopupWindow.setAlwaysOnTop(true, "screen-saver");
+  if (VITE_DEV_SERVER_URL) {
+    metricsPopupWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/metrics-popup`);
+  } else {
+    metricsPopupWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
+      hash: "metrics-popup"
+    });
+  }
+  metricsPopupWindow.on("blur", () => {
+    if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
+      metricsPopupWindow.close();
+      metricsPopupWindow = null;
+    }
+  });
+  metricsPopupWindow.on("closed", () => {
+    metricsPopupWindow = null;
+  });
+}
 ipcMain.on("resize-overlay", () => {
-  resizeOverlayToContent();
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    resizeOverlayToContent();
+  }
 });
-app.whenReady().then(createWindow);
+ipcMain.on("show-tasks-popup", () => {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    createTasksPopupWindow();
+  }
+});
+ipcMain.on("show-metrics-popup", () => {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    createMetricsPopupWindow();
+  }
+});
+ipcMain.on("close-popups", () => {
+  if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
+    tasksPopupWindow.close();
+    tasksPopupWindow = null;
+  }
+  if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
+    metricsPopupWindow.close();
+    metricsPopupWindow = null;
+  }
+});
+ipcMain.on("overlay:show", () => {
+  if (!overlayWindow) {
+    createOverlayWindow();
+  } else {
+    overlayWindow.showInactive();
+  }
+});
+ipcMain.on("overlay:hide", () => {
+  if (overlayWindow) overlayWindow.close();
+});
+app.whenReady().then(() => {
+  try {
+    loadDB();
+  } catch (e) {
+    console.error("Failed to load local DB:", e);
+  }
+  createWindow();
+});
 export {
   MAIN_DIST,
   RENDERER_DIST,
   VITE_DEV_SERVER_URL,
   mainWindow,
-  overlayWindow
+  metricsPopupWindow,
+  overlayWindow,
+  tasksPopupWindow
 };

@@ -12,6 +12,7 @@ import { useState } from "react";
 
 export default function ProjectsHub() {
   const { data, isLoading } = useDashboardData();
+  const projects = data?.projects ?? [];
   const createProject = useCreateProject();
   const [showModal, setShowModal] = useState(false);
 
@@ -22,15 +23,15 @@ export default function ProjectsHub() {
       <h1 className="text-3xl font-bold mb-6">Projects</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {data.projects.map((project: any) => (
+        {projects.map((project: any) => (
           <Card key={project.id} className="hover:shadow-md transition">
             <CardContent className="p-4">
               <h2 className="text-lg font-medium">{project.name}</h2>
               <p className="text-sm opacity-80">
-                {Math.floor(project.total_seconds / 60)} mins logged
+                {Math.floor((project.total_seconds || 0) / 60)} mins logged
               </p>
               <p className="text-sm">
-                Focus Score: {project.avg_focus_score.toFixed(1)}
+                Focus Score: {(project.avg_focus_score || 0).toFixed(1)}
               </p>
             </CardContent>
           </Card>

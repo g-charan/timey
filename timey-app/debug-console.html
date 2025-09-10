@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timey Debug Console</title>
+    <style>
+        body {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.4;
+        }
+        .header {
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background: #222;
+        }
+        .pass { color: #00ff00; }
+        .fail { color: #ff0000; }
+        .pending { color: #ffff00; }
+        .info { color: #00aaff; }
+        .button {
+            background: #333;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 8px 16px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        #console {
+            background: #000;
+            border: 1px solid #333;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧪 Timey App Debug Console</h1>
+        <p class="info">Real-time functionality testing and debugging</p>
+    </div>
+
+    <div class="test-section">
+        <h3>Manual Test Controls</h3>
+        <button class="button" onclick="testOverlayTimer()">Test Overlay Timer</button>
+        <button class="button" onclick="testPopupWindows()">Test Popup Windows</button>
+        <button class="button" onclick="testLocalStorage()">Test Local Storage</button>
+        <button class="button" onclick="testKeyboardShortcuts()">Test Keyboard Shortcuts</button>
+        <button class="button" onclick="clearConsole()">Clear Console</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Console Output</h3>
+        <div id="console"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>API Status Check</h3>
+        <div id="api-status"></div>
+    </div>
+
+    <script>
+        const consoleDiv = document.getElementById('console');
+        const apiStatusDiv = document.getElementById('api-status');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'pass' ? 'pass' : type === 'fail' ? 'fail' : type === 'pending' ? 'pending' : 'info';
+            consoleDiv.innerHTML += `<div class="${className}"><span class="timestamp">[${timestamp}]</span> ${message}</div>`;
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        function clearConsole() {
+            consoleDiv.innerHTML = '';
+        }
+
+        function checkAPIStatus() {
+            log('🔍 Checking API availability...', 'info');
+            
+            // Check if we're in Electron context
+            if (typeof window !== 'undefined') {
+                if (window.appAPI) {
+                    log('✅ appAPI is available', 'pass');
+                    const methods = Object.keys(window.appAPI);
+                    log(`📋 Available methods: ${methods.join(', ')}`, 'info');
+                } else {
+                    log('❌ appAPI is not available', 'fail');
+                }
+
+                if (window.timerAPI) {
+                    log('✅ timerAPI is available', 'pass');
+                    const methods = Object.keys(window.timerAPI);
+                    log(`⏱️ Available methods: ${methods.join(', ')}`, 'info');
+                } else {
+                    log('❌ timerAPI is not available', 'fail');
+                }
+
+                if (window.databaseAPI) {
+                    log('✅ databaseAPI is available', 'pass');
+                } else {
+                    log('❌ databaseAPI is not available', 'fail');
+                }
+            } else {
+                log('❌ Not running in browser context', 'fail');
+            }
+        }
+
+        function testOverlayTimer() {
+            log('🧪 Testing Overlay Timer Functionality...', 'info');
+            
+            if (!window.timerAPI) {
+                log('❌ Timer API not available', 'fail');
+                return;
+            }
+
+            try {
+                // Test timer state retrieval
+                window.timerAPI.getTimerState().then(state => {
+                    log(`✅ Timer state retrieved: ${JSON.stringify(state)}`, 'pass');
+                }).catch(err => {
+                    log(`❌ Failed to get timer state: ${err}`, 'fail');
+                });
+
+                // Test timer start
+                log('🚀 Starting test timer (5 minutes)...', 'info');
+                window.timerAPI.startTimer(5 * 60, 'Debug Test Session');
+                log('✅ Timer start command sent', 'pass');
+
+                // Check state after 2 seconds
+                setTimeout(() => {
+                    window.timerAPI.getTimerState().then(state => {
+                        if (state.isActive) {
+                            log('✅ Timer is running correctly', 'pass');
+                        } else {
+                            log('❌ Timer should be active but is not', 'fail');
+                        }
+                    });
+                }, 2000);
+
+            } catch (error) {
+                log(`❌ Timer test error: ${error}`, 'fail');
+            }
+        }
+
+        function testPopupWindows() {
+            log('🧪 Testing Popup Windows...', 'info');
+            
+            if (!window.appAPI) {
+                log('❌ App API not available', 'fail');
+                return;
+            }
+
+            try {
+                // Test Tasks Popup
+                if (window.appAPI.showTasksPopup) {
+                    log('🚀 Opening Tasks Popup...', 'info');
+                    window.appAPI.showTasksPopup();
+                    log('✅ Tasks popup command sent', 'pass');
+                    
+                    // Auto-close after 3 seconds
+                    setTimeout(() => {
+                        if (window.appAPI.closePopups) {
+                            window.appAPI.closePopups();
+                            log('✅ Tasks popup closed', 'pass');
+                        }
+                    }, 3000);
+                } else {
+                    log('❌ showTasksPopup method not available', 'fail');
+                }
+
+                // Test Metrics Popup after 4 seconds
+                setTimeout(() => {
+                    if (window.appAPI.showMetricsPopup) {
+                        log('🚀 Opening Metrics Popup...', 'info');
+                        window.appAPI.showMetricsPopup();
+                        log('✅ Metrics popup command sent', 'pass');
+                        
+                        // Auto-close after 3 seconds
+                        setTimeout(() => {
+                            if (window.appAPI.closePopups) {
+                                window.appAPI.closePopups();
+                                log('✅ Metrics popup closed', 'pass');
+                            }
+                        }, 3000);
+                    } else {
+                        log('❌ showMetricsPopup method not available', 'fail');
+                    }
+                }, 4000);
+
+            } catch (error) {
+                log(`❌ Popup test error: ${error}`, 'fail');
+            }
+        }
+
+        function testLocalStorage() {
+            log('🧪 Testing Local Storage Persistence...', 'info');
+            
+            try {
+                // Test task storage
+                const testTask = {
+                    id: 'debug-test-' + Date.now(),
+                    title: 'Debug Test Task',
+                    completed: false,
+                    priority: 'high',
+                    createdAt: new Date().toISOString()
+                };
+
+                // Save test data
+                const existingTasks = JSON.parse(localStorage.getItem('timey_tasks') || '[]');
+                existingTasks.push(testTask);
+                localStorage.setItem('timey_tasks', JSON.stringify(existingTasks));
+                log('✅ Test task saved to localStorage', 'pass');
+
+                // Retrieve and verify
+                const retrievedTasks = JSON.parse(localStorage.getItem('timey_tasks') || '[]');
+                const foundTask = retrievedTasks.find(t => t.id === testTask.id);
+                
+                if (foundTask) {
+                    log('✅ Test task retrieved successfully', 'pass');
+                } else {
+                    log('❌ Test task not found in storage', 'fail');
+                }
+
+                // Test settings storage
+                const testSettings = {
+                    theme: 'debug-mode',
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('timey_debug_settings', JSON.stringify(testSettings));
+                log('✅ Debug settings saved', 'pass');
+
+                // Clean up
+                const cleanedTasks = retrievedTasks.filter(t => t.id !== testTask.id);
+                localStorage.setItem('timey_tasks', JSON.stringify(cleanedTasks));
+                localStorage.removeItem('timey_debug_settings');
+                log('✅ Test data cleaned up', 'pass');
+
+            } catch (error) {
+                log(`❌ Local storage test error: ${error}`, 'fail');
+            }
+        }
+
+        function testKeyboardShortcuts() {
+            log('🧪 Testing Keyboard Shortcuts...', 'info');
+            
+            try {
+                const shortcuts = [
+                    { key: 'Enter', metaKey: true, description: 'Start Timer (Cmd+Enter)' },
+                    { key: ' ', description: 'Pause Timer (Space)' },
+                    { key: 'n', metaKey: true, description: 'New Task (Cmd+N)' }
+                ];
+
+                shortcuts.forEach((shortcut, index) => {
+                    setTimeout(() => {
+                        const event = new KeyboardEvent('keydown', {
+                            key: shortcut.key,
+                            metaKey: shortcut.metaKey || false,
+                            bubbles: true
+                        });
+                        
+                        document.dispatchEvent(event);
+                        log(`✅ ${shortcut.description} event dispatched`, 'pass');
+                    }, index * 500);
+                });
+
+            } catch (error) {
+                log(`❌ Keyboard shortcut test error: ${error}`, 'fail');
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            log('🚀 Debug Console Initialized', 'info');
+            checkAPIStatus();
+            
+            // Auto-refresh API status every 5 seconds
+            setInterval(checkAPIStatus, 5000);
+        });
+
+        // Listen for console messages from the main app
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'debug-log') {
+                log(event.data.message, event.data.level || 'info');
+            }
+        });
+    </script>
+</body>
+</html>
