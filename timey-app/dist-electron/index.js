@@ -4,10 +4,10 @@ var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "sy
 import { app, ipcMain, shell, BrowserWindow, screen } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import path$1 from "node:path";
-import path from "path";
+import path from "node:path";
+import require$$4 from "path";
 import fs from "fs";
-const dbPath = path.join(app.getPath("userData"), "focus.json");
+const dbPath = require$$4.join(app.getPath("userData"), "focus.json");
 let db = {
   projects: [],
   milestones: [],
@@ -272,9 +272,9 @@ ipcMain.handle("db:generateReport", async () => {
   ).join("")}
   </tbody></table>
   </body></html>`;
-  const outDir = path.join(app.getPath("userData"), "reports");
+  const outDir = require$$4.join(app.getPath("userData"), "reports");
   fs.mkdirSync(outDir, { recursive: true });
-  const outPath = path.join(outDir, `report-${Date.now()}.html`);
+  const outPath = require$$4.join(outDir, `report-${Date.now()}.html`);
   fs.writeFileSync(outPath, reportHtml);
   return { path: outPath };
 });
@@ -451,16 +451,16 @@ class TimerManager {
     return { ...this.timerState };
   }
 }
-const require2 = createRequire(import.meta.url);
-const __dirname = path$1.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path$1.join(__dirname, "..");
+createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path.join(__dirname, "..");
 new TimerManager();
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
-const MAIN_DIST = path$1.join(process.env.APP_ROOT, "dist-electron");
-const RENDERER_DIST = path$1.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path$1.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
+const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
+const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let mainWindow;
 let overlayWindow;
 let tasksPopupWindow;
@@ -488,14 +488,13 @@ function createOverlayWindow() {
     resizable: false,
     // Disable manual resizing
     webPreferences: {
-      preload: path$1.join(__dirname, "index.mjs")
+      preload: path.join(__dirname, "index.mjs")
     }
   });
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setFullScreenable(false);
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
   overlayWindow.setIgnoreMouseEvents(false);
-  overlayWindow.webContents.openDevTools({ mode: "detach" });
   overlayWindow.webContents.on("did-finish-load", () => {
     setTimeout(() => {
       resizeOverlayToContent();
@@ -504,7 +503,7 @@ function createOverlayWindow() {
   if (VITE_DEV_SERVER_URL) {
     overlayWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/overlay`);
   } else {
-    overlayWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
+    overlayWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
       hash: "overlay"
     });
   }
@@ -569,7 +568,12 @@ async function resizeOverlayToContent() {
         Math.max(0, screenWidth - dimensions.width - 20),
         20
       );
-      console.log("Overlay resized to:", dimensions, "Dropdown visible:", dimensions.hasDropdown);
+      console.log(
+        "Overlay resized to:",
+        dimensions,
+        "Dropdown visible:",
+        dimensions.hasDropdown
+      );
     }
   } catch (error) {
     console.error("Failed to resize overlay:", error);
@@ -577,9 +581,9 @@ async function resizeOverlayToContent() {
 }
 function createWindow() {
   mainWindow = new BrowserWindow({
-    icon: path$1.join(process.env.VITE_PUBLIC || "", "electron-vite.svg"),
+    icon: path.join(process.env.VITE_PUBLIC || "", "electron-vite.svg"),
     webPreferences: {
-      preload: path$1.join(__dirname, "index.mjs")
+      preload: path.join(__dirname, "index.mjs")
     }
   });
   mainWindow.webContents.on("did-finish-load", () => {
@@ -588,11 +592,10 @@ function createWindow() {
       (/* @__PURE__ */ new Date()).toLocaleString()
     );
   });
-  mainWindow.webContents.openDevTools({ mode: "detach" });
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"));
+    mainWindow.loadFile(path.join(RENDERER_DIST, "index.html"));
   }
   mainWindow.on("minimize", () => {
     if (!overlayWindow) {
@@ -651,23 +654,35 @@ ipcMain.on("restore-main-window", () => {
   }
 });
 let trackingInterval = null;
-let activeWindow;
-if (process.platform === "win32") {
-  activeWindow = require2("get-windows").activeWindow;
-} else {
-  activeWindow = async () => null;
-}
+let activeWindow = null;
 const appUsage = /* @__PURE__ */ new Map();
 const CHECK_INTERVAL = 5;
-ipcMain.on("start-tracking", () => {
+async function initializeActiveWindow() {
+  if (process.platform === "win32") {
+    try {
+      const getWindows = await import("./index-FXQOsN7n.js");
+      activeWindow = getWindows.activeWindow;
+      console.log("Successfully loaded get-windows module");
+    } catch (error) {
+      console.error("Failed to load get-windows:", error);
+      activeWindow = async () => null;
+    }
+  } else {
+    activeWindow = async () => null;
+  }
+}
+ipcMain.on("start-tracking", async () => {
   console.log("START tracking activity...");
+  if (!activeWindow) {
+    await initializeActiveWindow();
+  }
   if (trackingInterval) {
     clearInterval(trackingInterval);
   }
   trackingInterval = setInterval(async () => {
     try {
       const win = await activeWindow();
-      if (win) {
+      if (win && win.owner && win.owner.name) {
         const appName = win.owner.name;
         const currentTime = appUsage.get(appName) || 0;
         appUsage.set(appName, currentTime + CHECK_INTERVAL);
@@ -714,15 +729,17 @@ function createTasksPopupWindow() {
     alwaysOnTop: true,
     resizable: false,
     webPreferences: {
-      preload: path$1.join(__dirname, "index.mjs")
+      preload: path.join(__dirname, "index.mjs")
     }
   });
-  tasksPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  tasksPopupWindow.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true
+  });
   tasksPopupWindow.setAlwaysOnTop(true, "screen-saver");
   if (VITE_DEV_SERVER_URL) {
     tasksPopupWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/tasks-popup`);
   } else {
-    tasksPopupWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
+    tasksPopupWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
       hash: "tasks-popup"
     });
   }
@@ -753,15 +770,17 @@ function createMetricsPopupWindow() {
     alwaysOnTop: true,
     resizable: false,
     webPreferences: {
-      preload: path$1.join(__dirname, "index.mjs")
+      preload: path.join(__dirname, "index.mjs")
     }
   });
-  metricsPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  metricsPopupWindow.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true
+  });
   metricsPopupWindow.setAlwaysOnTop(true, "screen-saver");
   if (VITE_DEV_SERVER_URL) {
     metricsPopupWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/metrics-popup`);
   } else {
-    metricsPopupWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
+    metricsPopupWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
       hash: "metrics-popup"
     });
   }
@@ -810,12 +829,13 @@ ipcMain.on("overlay:show", () => {
 ipcMain.on("overlay:hide", () => {
   if (overlayWindow) overlayWindow.close();
 });
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   try {
     loadDB();
   } catch (e) {
     console.error("Failed to load local DB:", e);
   }
+  await initializeActiveWindow();
   createWindow();
 });
 export {

@@ -30,30 +30,6 @@ let currentTimerState = {
 // Create global timer manager instance
 const timerManager = new TimerManager();
 
-// Remove the old timer-related IPC handlers and replace with:
-// (Remove these old handlers from your existing code)
-/*
-ipcMain.on("update-timer-state", (event, state) => {
-  broadcastTimerUpdate(state);
-});
-
-ipcMain.handle("get-timer-state", () => {
-  return currentTimerState;
-});
-
-ipcMain.on("pause-timer", () => {
-  if (mainWindow) {
-    mainWindow.webContents.send("pause-timer");
-  }
-});
-
-ipcMain.on("resume-timer", () => {
-  if (mainWindow) {
-    mainWindow.webContents.send("resume-timer");
-  }
-});
-*/
-
 // Function to broadcast timer updates to all windows
 
 app.disableHardwareAcceleration();
@@ -110,7 +86,6 @@ function createOverlayWindow() {
   // NOTE: use this for Debugging
   // overlayWindow.webContents.openDevTools({ mode: "detach" });
   // mainWindow?.webContents.openDevTools({ mode: "detach" });
-  overlayWindow.webContents.openDevTools({ mode: "detach" });
 
   // Wait for content to load, then resize
   overlayWindow.webContents.on("did-finish-load", () => {
@@ -137,7 +112,7 @@ function createOverlayWindow() {
 // Function to resize overlay based on content including dropdowns
 async function resizeOverlayToContent() {
   if (!overlayWindow || overlayWindow.isDestroyed()) {
-    console.log('Overlay window not available for resize');
+    console.log("Overlay window not available for resize");
     return;
   }
 
@@ -204,7 +179,12 @@ async function resizeOverlayToContent() {
         20
       );
 
-      console.log("Overlay resized to:", dimensions, "Dropdown visible:", dimensions.hasDropdown);
+      console.log(
+        "Overlay resized to:",
+        dimensions,
+        "Dropdown visible:",
+        dimensions.hasDropdown
+      );
     }
   } catch (error) {
     console.error("Failed to resize overlay:", error);
@@ -228,7 +208,6 @@ function createWindow() {
   });
 
   // Open DevTools for the main window to debug blank screen
-  mainWindow.webContents.openDevTools({ mode: "detach" });
 
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL);
@@ -266,27 +245,27 @@ function createWindow() {
       overlayWindow.close();
       overlayWindow = null;
     }
-    
+
     // Close popup windows if they exist
     if (tasksPopupWindow && !tasksPopupWindow.isDestroyed()) {
       tasksPopupWindow.close();
       tasksPopupWindow = null;
     }
-    
+
     if (metricsPopupWindow && !metricsPopupWindow.isDestroyed()) {
       metricsPopupWindow.close();
       metricsPopupWindow = null;
     }
-    
+
     // Clear tracking interval if running
     if (trackingInterval) {
       clearInterval(trackingInterval);
       trackingInterval = null;
     }
-    
+
     // Set main window to null
     mainWindow = null;
-    
+
     // Quit the application completely
     app.quit();
   });
@@ -319,34 +298,46 @@ ipcMain.on("restore-main-window", () => {
 });
 
 let trackingInterval: NodeJS.Timeout | null = null;
-let activeWindow: any;
-
-if (process.platform === "win32") {
-  activeWindow = require("get-windows").activeWindow;
-} else {
-  activeWindow = async () => null; // fallback for macOS/Linux
-}
+let activeWindow: any = null;
 const appUsage = new Map<string, number>(); // To store time spent on each app (in seconds)
 const CHECK_INTERVAL = 5; // Check every 5 seconds
 
-ipcMain.on("start-tracking", () => {
+// Initialize the activeWindow function based on platform
+async function initializeActiveWindow() {
+  if (process.platform === "win32") {
+    try {
+      const getWindows = await import("get-windows");
+      activeWindow = getWindows.activeWindow;
+      console.log("Successfully loaded get-windows module");
+    } catch (error) {
+      console.error("Failed to load get-windows:", error);
+      activeWindow = async () => null;
+    }
+  } else {
+    // Fallback for macOS/Linux
+    activeWindow = async () => null;
+  }
+}
+
+ipcMain.on("start-tracking", async () => {
   console.log("START tracking activity...");
+
+  // Initialize activeWindow if not already done
+  if (!activeWindow) {
+    await initializeActiveWindow();
+  }
+
   if (trackingInterval) {
     clearInterval(trackingInterval); // Clear any existing interval
   }
 
   trackingInterval = setInterval(async () => {
-    // Use a standard function for 'this' context if needed, but arrow is fine here
     try {
-      // 2. USE the new function to get the window
+      // Use the initialized activeWindow function
       const win = await activeWindow();
 
-      if (win) {
-        // 3. GET the app name from the 'path' property
-        // We split by '/' on Mac/Linux or '\' on Windows and get the last part
-
+      if (win && win.owner && win.owner.name) {
         const appName = win.owner.name; // Get the executable name
-
         const currentTime = appUsage.get(appName) || 0;
         appUsage.set(appName, currentTime + CHECK_INTERVAL);
 
@@ -406,7 +397,9 @@ function createTasksPopupWindow() {
     },
   });
 
-  tasksPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  tasksPopupWindow.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true,
+  });
   tasksPopupWindow.setAlwaysOnTop(true, "screen-saver");
 
   if (VITE_DEV_SERVER_URL) {
@@ -453,7 +446,9 @@ function createMetricsPopupWindow() {
     },
   });
 
-  metricsPopupWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  metricsPopupWindow.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true,
+  });
   metricsPopupWindow.setAlwaysOnTop(true, "screen-saver");
 
   if (VITE_DEV_SERVER_URL) {
@@ -519,11 +514,15 @@ ipcMain.on("overlay:hide", () => {
   if (overlayWindow) overlayWindow.close();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   try {
     loadDB();
   } catch (e) {
     console.error("Failed to load local DB:", e);
   }
+
+  // Initialize the activeWindow function
+  await initializeActiveWindow();
+
   createWindow();
 });
