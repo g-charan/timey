@@ -1,9 +1,7 @@
 import { app, BrowserWindow } from "electron";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { screen, ipcMain } from "electron";
-const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import "./handlers/db_handlers";
 import { loadDB } from "../../src/db/db";
@@ -302,19 +300,73 @@ let activeWindow: any = null;
 const appUsage = new Map<string, number>(); // To store time spent on each app (in seconds)
 const CHECK_INTERVAL = 5; // Check every 5 seconds
 
-// Initialize the activeWindow function based on platform
+// Initialize the activeWindow function using windows-cli package
 async function initializeActiveWindow() {
-  if (process.platform === "win32") {
-    try {
-      const getWindows = await import("get-windows");
-      activeWindow = getWindows.activeWindow;
-      console.log("Successfully loaded get-windows module");
-    } catch (error) {
-      console.error("Failed to load get-windows:", error);
-      activeWindow = async () => null;
-    }
-  } else {
-    // Fallback for macOS/Linux
+  try {
+    const { exec } = await import('child_process');
+    
+    activeWindow = async () => {
+      try {
+        return new Promise((resolve) => {
+          // Use active-window CLI command to get active window info
+          exec('active-window', { timeout: 5000 }, (error, stdout) => {
+            if (error) {
+              console.error("[TRACKING] windows-cli error:", error);
+              resolve(null);
+              return;
+            }
+            
+            const output = stdout?.trim();
+            if (!output) {
+              console.log("[TRACKING] No active window detected");
+              resolve(null);
+              return;
+            }
+            
+            // Parse the output - active-window returns lines: title, id, app, pid
+            const lines = output.split('\n').map(line => line.trim());
+            console.log(`[TRACKING] Raw output lines:`, lines);
+            
+            if (lines.length >= 2) {
+              const [title, id, app, pid] = lines;
+              
+              // Extract app name from title if app is undefined
+              let appName = app && app !== 'undefined' ? app : 'Unknown App';
+              if (appName === 'Unknown App' && title) {
+                // Try to extract app name from title (e.g., "timey - Windsurf - ..." -> "Windsurf")
+                const titleParts = title.split(' - ');
+                if (titleParts.length > 1) {
+                  appName = titleParts[1] || titleParts[0];
+                }
+              }
+              
+              const processId = pid && pid !== 'undefined' ? parseInt(pid) : 0;
+              
+              console.log(`[TRACKING] Successfully detected: ${appName} - ${title}`);
+              resolve({
+                title: title || "Unknown Window",
+                owner: {
+                  name: appName,
+                  processId: processId,
+                  path: ""
+                },
+                id: id || "unknown"
+              });
+            } else {
+              console.log("[TRACKING] Invalid active-window output format - not enough lines");
+              resolve(null);
+            }
+          });
+        });
+      } catch (error) {
+        console.error("[TRACKING] Error executing active-window command:", error);
+        return null;
+      }
+    };
+    console.log("[TRACKING] Successfully initialized windows-cli");
+  } catch (error) {
+    console.error("[TRACKING] Failed to load windows-cli:", error);
+    // Fallback to null function
     activeWindow = async () => null;
   }
 }
@@ -338,36 +390,45 @@ ipcMain.on("start-tracking", async () => {
 
       if (win && win.owner && win.owner.name) {
         const appName = win.owner.name; // Get the executable name
+        const windowTitle = win.title || "Unknown Window";
         const currentTime = appUsage.get(appName) || 0;
         appUsage.set(appName, currentTime + CHECK_INTERVAL);
 
         console.log(
-          "Active App:",
-          appName,
-          "| Total Time:",
-          appUsage.get(appName),
-          "seconds"
+          `[TRACKING] Active App: ${appName} | Window: ${windowTitle} | Session Time: ${appUsage.get(appName)}s | Total Apps Tracked: ${appUsage.size}`
         );
+      } else {
+        console.log("[TRACKING] No active window detected or window data unavailable");
       }
     } catch (error) {
-      console.error("Could not get active window:", error);
+      console.error("[TRACKING ERROR] Could not get active window:", error);
     }
   }, CHECK_INTERVAL * 1000);
+
+  console.log(`[TRACKING] Started monitoring active windows every ${CHECK_INTERVAL} seconds`);
 });
 
 ipcMain.on("stop-tracking", () => {
-  console.log("STOP tracking activity.");
+  console.log("[TRACKING] STOP tracking activity.");
   if (trackingInterval) {
     clearInterval(trackingInterval);
     trackingInterval = null;
   }
 
   // Here you can see the final results for the session
-  console.log("--- Session Report ---");
-  appUsage.forEach((time, app) => {
-    console.log(`${app}: ${time} seconds`);
-  });
-  console.log("--------------------");
+  console.log("[TRACKING] === SESSION REPORT ===");
+  if (appUsage.size > 0) {
+    appUsage.forEach((time, app) => {
+      const minutes = Math.floor(time / 60);
+      const seconds = time % 60;
+      console.log(`[TRACKING] ${app}: ${minutes}m ${seconds}s (${time} total seconds)`);
+    });
+    console.log(`[TRACKING] Total apps tracked: ${appUsage.size}`);
+    console.log(`[TRACKING] Total session time: ${Array.from(appUsage.values()).reduce((a, b) => a + b, 0)} seconds`);
+  } else {
+    console.log("[TRACKING] No app usage data recorded in this session");
+  }
+  console.log("[TRACKING] === END REPORT ===");
 
   // Later, you'll send this data to your Go backend
   appUsage.clear(); // Clear the map for the next session

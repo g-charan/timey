@@ -221,7 +221,7 @@ const CategoryBreakdown: React.FC<{
 const ProductivityInsights: React.FC<{
   apps: AppStats[];
   timeRange: string;
-}> = ({ apps, timeRange }) => {
+}> = ({ apps }) => {
   const totalTime = apps.reduce((acc, app) => acc + app.totalTime, 0);
   const productiveApps = apps.filter(app => app.isProductive);
   const distractingApps = apps.filter(app => !app.isProductive);
@@ -285,10 +285,11 @@ const ProductivityInsights: React.FC<{
 };
 
 export const AppTimeTracker: React.FC = () => {
-  const { currentSession, focusSessions } = useTaskStore();
-  const [isTracking, setIsTracking] = useState(true);
+  const { currentSession } = useTaskStore();
+  const [isTracking, setIsTracking] = useState(false);
   const [timeRange, setTimeRange] = useState('today');
   const [showOnlyProductive, setShowOnlyProductive] = useState(false);
+  const [isActiveWindowTracking, setIsActiveWindowTracking] = useState(false);
   
   // Mock app usage data (in real implementation, this would come from system APIs)
   const [appStats, setAppStats] = useState<AppStats[]>([
@@ -398,6 +399,20 @@ export const AppTimeTracker: React.FC = () => {
     setIsTracking(!isTracking);
   };
 
+  const handleStartActiveWindowTracking = () => {
+    if (window.ipcRenderer) {
+      window.ipcRenderer.send('start-tracking');
+      setIsActiveWindowTracking(true);
+    }
+  };
+
+  const handleStopActiveWindowTracking = () => {
+    if (window.ipcRenderer) {
+      window.ipcRenderer.send('stop-tracking');
+      setIsActiveWindowTracking(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -430,6 +445,30 @@ export const AppTimeTracker: React.FC = () => {
               )}
             </Label>
           </div>
+
+          <div className="flex items-center gap-2">
+            {isActiveWindowTracking ? (
+              <Button
+                onClick={handleStopActiveWindowTracking}
+                variant="destructive"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Monitor className="w-4 h-4" />
+                Stop Active Window Tracking
+              </Button>
+            ) : (
+              <Button
+                onClick={handleStartActiveWindowTracking}
+                variant="default"
+                size="sm"
+                className="flex items-center gap-2"
+              >
+                <Monitor className="w-4 h-4" />
+                Start Active Window Tracking
+              </Button>
+            )}
+          </div>
           
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger className="w-32">
@@ -445,7 +484,7 @@ export const AppTimeTracker: React.FC = () => {
       </div>
 
       {/* Current Session Tracking */}
-      {currentSession && isTracking && (
+      {(currentSession && isTracking) || isActiveWindowTracking ? (
         <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/20">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -453,17 +492,28 @@ export const AppTimeTracker: React.FC = () => {
               <div className="flex-1">
                 <h4 className="font-medium text-sm">Currently Tracking</h4>
                 <p className="text-xs text-muted-foreground">
-                  Focus session active - monitoring app usage
+                  {isActiveWindowTracking 
+                    ? "Active window tracking enabled - monitoring real-time app usage"
+                    : "Focus session active - monitoring app usage"
+                  }
                 </p>
               </div>
-              <Badge variant="secondary" className="text-xs">
-                <Clock className="w-3 h-3 mr-1" />
-                Live
-              </Badge>
+              <div className="flex items-center gap-2">
+                {isActiveWindowTracking && (
+                  <Badge variant="default" className="text-xs">
+                    <Monitor className="w-3 h-3 mr-1" />
+                    Active Window
+                  </Badge>
+                )}
+                <Badge variant="secondary" className="text-xs">
+                  <Clock className="w-3 h-3 mr-1" />
+                  Live
+                </Badge>
+              </div>
             </div>
           </CardContent>
         </Card>
-      )}
+      ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main App List */}

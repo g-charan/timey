@@ -2,12 +2,11 @@ var __defProp = Object.defineProperty;
 var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 import { app, ipcMain, shell, BrowserWindow, screen } from "electron";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import path from "node:path";
-import require$$4 from "path";
+import path$1 from "node:path";
+import path from "path";
 import fs from "fs";
-const dbPath = require$$4.join(app.getPath("userData"), "focus.json");
+const dbPath = path.join(app.getPath("userData"), "focus.json");
 let db = {
   projects: [],
   milestones: [],
@@ -272,9 +271,9 @@ ipcMain.handle("db:generateReport", async () => {
   ).join("")}
   </tbody></table>
   </body></html>`;
-  const outDir = require$$4.join(app.getPath("userData"), "reports");
+  const outDir = path.join(app.getPath("userData"), "reports");
   fs.mkdirSync(outDir, { recursive: true });
-  const outPath = require$$4.join(outDir, `report-${Date.now()}.html`);
+  const outPath = path.join(outDir, `report-${Date.now()}.html`);
   fs.writeFileSync(outPath, reportHtml);
   return { path: outPath };
 });
@@ -451,16 +450,15 @@ class TimerManager {
     return { ...this.timerState };
   }
 }
-createRequire(import.meta.url);
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-process.env.APP_ROOT = path.join(__dirname, "..");
+const __dirname = path$1.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path$1.join(__dirname, "..");
 new TimerManager();
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch("ignore-gpu-blocklist");
 const VITE_DEV_SERVER_URL = process.env["VITE_DEV_SERVER_URL"];
-const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
-const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
+const MAIN_DIST = path$1.join(process.env.APP_ROOT, "dist-electron");
+const RENDERER_DIST = path$1.join(process.env.APP_ROOT, "dist");
+process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path$1.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let mainWindow;
 let overlayWindow;
 let tasksPopupWindow;
@@ -488,7 +486,7 @@ function createOverlayWindow() {
     resizable: false,
     // Disable manual resizing
     webPreferences: {
-      preload: path.join(__dirname, "index.mjs")
+      preload: path$1.join(__dirname, "index.mjs")
     }
   });
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -503,7 +501,7 @@ function createOverlayWindow() {
   if (VITE_DEV_SERVER_URL) {
     overlayWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/overlay`);
   } else {
-    overlayWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
+    overlayWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
       hash: "overlay"
     });
   }
@@ -581,9 +579,9 @@ async function resizeOverlayToContent() {
 }
 function createWindow() {
   mainWindow = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC || "", "electron-vite.svg"),
+    icon: path$1.join(process.env.VITE_PUBLIC || "", "electron-vite.svg"),
     webPreferences: {
-      preload: path.join(__dirname, "index.mjs")
+      preload: path$1.join(__dirname, "index.mjs")
     }
   });
   mainWindow.webContents.on("did-finish-load", () => {
@@ -595,7 +593,7 @@ function createWindow() {
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(path.join(RENDERER_DIST, "index.html"));
+    mainWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"));
   }
   mainWindow.on("minimize", () => {
     if (!overlayWindow) {
@@ -658,16 +656,59 @@ let activeWindow = null;
 const appUsage = /* @__PURE__ */ new Map();
 const CHECK_INTERVAL = 5;
 async function initializeActiveWindow() {
-  if (process.platform === "win32") {
-    try {
-      const getWindows = await import("./index-FXQOsN7n.js");
-      activeWindow = getWindows.activeWindow;
-      console.log("Successfully loaded get-windows module");
-    } catch (error) {
-      console.error("Failed to load get-windows:", error);
-      activeWindow = async () => null;
-    }
-  } else {
+  try {
+    const { exec } = await import("child_process");
+    activeWindow = async () => {
+      try {
+        return new Promise((resolve) => {
+          exec("active-window", { timeout: 5e3 }, (error, stdout) => {
+            if (error) {
+              console.error("[TRACKING] windows-cli error:", error);
+              resolve(null);
+              return;
+            }
+            const output = stdout == null ? void 0 : stdout.trim();
+            if (!output) {
+              console.log("[TRACKING] No active window detected");
+              resolve(null);
+              return;
+            }
+            const lines = output.split("\n").map((line) => line.trim());
+            console.log(`[TRACKING] Raw output lines:`, lines);
+            if (lines.length >= 2) {
+              const [title, id, app2, pid] = lines;
+              let appName = app2 && app2 !== "undefined" ? app2 : "Unknown App";
+              if (appName === "Unknown App" && title) {
+                const titleParts = title.split(" - ");
+                if (titleParts.length > 1) {
+                  appName = titleParts[1] || titleParts[0];
+                }
+              }
+              const processId = pid && pid !== "undefined" ? parseInt(pid) : 0;
+              console.log(`[TRACKING] Successfully detected: ${appName} - ${title}`);
+              resolve({
+                title: title || "Unknown Window",
+                owner: {
+                  name: appName,
+                  processId,
+                  path: ""
+                },
+                id: id || "unknown"
+              });
+            } else {
+              console.log("[TRACKING] Invalid active-window output format - not enough lines");
+              resolve(null);
+            }
+          });
+        });
+      } catch (error) {
+        console.error("[TRACKING] Error executing active-window command:", error);
+        return null;
+      }
+    };
+    console.log("[TRACKING] Successfully initialized windows-cli");
+  } catch (error) {
+    console.error("[TRACKING] Failed to load windows-cli:", error);
     activeWindow = async () => null;
   }
 }
@@ -684,32 +725,40 @@ ipcMain.on("start-tracking", async () => {
       const win = await activeWindow();
       if (win && win.owner && win.owner.name) {
         const appName = win.owner.name;
+        const windowTitle = win.title || "Unknown Window";
         const currentTime = appUsage.get(appName) || 0;
         appUsage.set(appName, currentTime + CHECK_INTERVAL);
         console.log(
-          "Active App:",
-          appName,
-          "| Total Time:",
-          appUsage.get(appName),
-          "seconds"
+          `[TRACKING] Active App: ${appName} | Window: ${windowTitle} | Session Time: ${appUsage.get(appName)}s | Total Apps Tracked: ${appUsage.size}`
         );
+      } else {
+        console.log("[TRACKING] No active window detected or window data unavailable");
       }
     } catch (error) {
-      console.error("Could not get active window:", error);
+      console.error("[TRACKING ERROR] Could not get active window:", error);
     }
   }, CHECK_INTERVAL * 1e3);
+  console.log(`[TRACKING] Started monitoring active windows every ${CHECK_INTERVAL} seconds`);
 });
 ipcMain.on("stop-tracking", () => {
-  console.log("STOP tracking activity.");
+  console.log("[TRACKING] STOP tracking activity.");
   if (trackingInterval) {
     clearInterval(trackingInterval);
     trackingInterval = null;
   }
-  console.log("--- Session Report ---");
-  appUsage.forEach((time, app2) => {
-    console.log(`${app2}: ${time} seconds`);
-  });
-  console.log("--------------------");
+  console.log("[TRACKING] === SESSION REPORT ===");
+  if (appUsage.size > 0) {
+    appUsage.forEach((time, app2) => {
+      const minutes = Math.floor(time / 60);
+      const seconds = time % 60;
+      console.log(`[TRACKING] ${app2}: ${minutes}m ${seconds}s (${time} total seconds)`);
+    });
+    console.log(`[TRACKING] Total apps tracked: ${appUsage.size}`);
+    console.log(`[TRACKING] Total session time: ${Array.from(appUsage.values()).reduce((a, b) => a + b, 0)} seconds`);
+  } else {
+    console.log("[TRACKING] No app usage data recorded in this session");
+  }
+  console.log("[TRACKING] === END REPORT ===");
   appUsage.clear();
 });
 function createTasksPopupWindow() {
@@ -729,7 +778,7 @@ function createTasksPopupWindow() {
     alwaysOnTop: true,
     resizable: false,
     webPreferences: {
-      preload: path.join(__dirname, "index.mjs")
+      preload: path$1.join(__dirname, "index.mjs")
     }
   });
   tasksPopupWindow.setVisibleOnAllWorkspaces(true, {
@@ -739,7 +788,7 @@ function createTasksPopupWindow() {
   if (VITE_DEV_SERVER_URL) {
     tasksPopupWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/tasks-popup`);
   } else {
-    tasksPopupWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
+    tasksPopupWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
       hash: "tasks-popup"
     });
   }
@@ -770,7 +819,7 @@ function createMetricsPopupWindow() {
     alwaysOnTop: true,
     resizable: false,
     webPreferences: {
-      preload: path.join(__dirname, "index.mjs")
+      preload: path$1.join(__dirname, "index.mjs")
     }
   });
   metricsPopupWindow.setVisibleOnAllWorkspaces(true, {
@@ -780,7 +829,7 @@ function createMetricsPopupWindow() {
   if (VITE_DEV_SERVER_URL) {
     metricsPopupWindow.loadURL(`${VITE_DEV_SERVER_URL}/#/metrics-popup`);
   } else {
-    metricsPopupWindow.loadFile(path.join(RENDERER_DIST, "index.html"), {
+    metricsPopupWindow.loadFile(path$1.join(RENDERER_DIST, "index.html"), {
       hash: "metrics-popup"
     });
   }

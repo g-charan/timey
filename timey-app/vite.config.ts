@@ -9,7 +9,7 @@ export default defineConfig({
   build: {
     rollupOptions: {
       // Update this line
-      external: ["get-windows"],
+      external: ["windows-cli"],
     },
   },
   resolve: {
