@@ -1,9 +1,9 @@
 // File: src/renderer/src/components/OverlayTimer.tsx
 import "@/styles/overlay.css";
-import { Button } from "../../components/ui/button";
+import { Button } from "../../../components/ui/button";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Checkbox } from "../../components/ui/checkbox";
-import { useTaskStore } from "../../stores/taskStore";
+import { Checkbox } from "../../../components/ui/checkbox";
+import { useTaskStore } from "../../../stores/taskStore";
 
 interface TimerState {
   timeLeft: number | null;
@@ -23,7 +23,7 @@ interface TaskItem {
   id: string;
   title: string;
   completed: boolean;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
 }
 
 export function OverlayTimer() {
