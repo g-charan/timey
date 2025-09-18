@@ -48,17 +48,23 @@ export default function TodayList() {
   return (
     <Card className="border-border">
       <CardHeader>
-        <CardTitle className="text-foreground">Today</CardTitle>
+        <CardTitle className="text-foreground font-inconsolata ">
+          Today
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex gap-2">
           <input
-            className="flex-1 border rounded px-2 py-1 bg-background text-foreground"
+            className="flex-1 border rounded px-2 py-1 bg-background text-foreground font-inconsolata"
             placeholder="New task"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
           />
-          <Button variant="outline" onClick={create}>
+          <Button
+            variant="outline"
+            className="font-inconsolata"
+            onClick={create}
+          >
             Add
           </Button>
         </div>
@@ -90,7 +96,7 @@ export default function TodayList() {
             </div>
           ))}
           {tasks.length === 0 && (
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm font-firacode text-muted-foreground">
               No tasks for today
             </div>
           )}
@@ -99,4 +105,3 @@ export default function TodayList() {
     </Card>
   );
 }
-

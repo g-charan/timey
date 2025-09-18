@@ -81,7 +81,7 @@ export default function TasksTab() {
             </label>
           </div>
           <Button onClick={add}>Add Task</Button>
-          <div className="text-xs text-muted-foreground">
+          <div className="text-xs font-firacode text-muted-foreground">
             {eisenhowerLabel(urgent, important)}
           </div>
         </CardContent>
@@ -112,7 +112,7 @@ export default function TasksTab() {
                       <div className="text-foreground font-medium">
                         {t.title}
                       </div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs font-firacode text-muted-foreground">
                         {t.estimate_minutes ?? 0}m est •{" "}
                         {Math.round((t.actual_seconds ?? 0) / 60)}m actual
                       </div>
@@ -124,7 +124,9 @@ export default function TasksTab() {
                 </div>
               ))}
               {grouped[k].length === 0 && (
-                <div className="text-xs text-muted-foreground">No tasks</div>
+                <div className="text-xs font-firacode text-muted-foreground">
+                  No tasks
+                </div>
               )}
             </div>
           ))}

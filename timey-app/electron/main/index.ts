@@ -303,63 +303,70 @@ const CHECK_INTERVAL = 5; // Check every 5 seconds
 // Initialize the activeWindow function using windows-cli package
 async function initializeActiveWindow() {
   try {
-    const { exec } = await import('child_process');
-    
+    const { exec } = await import("child_process");
+
     activeWindow = async () => {
       try {
         return new Promise((resolve) => {
           // Use active-window CLI command to get active window info
-          exec('active-window', { timeout: 5000 }, (error, stdout) => {
+          exec("active-window", { timeout: 5000 }, (error, stdout) => {
             if (error) {
               console.error("[TRACKING] windows-cli error:", error);
               resolve(null);
               return;
             }
-            
+
             const output = stdout?.trim();
             if (!output) {
               console.log("[TRACKING] No active window detected");
               resolve(null);
               return;
             }
-            
+
             // Parse the output - active-window returns lines: title, id, app, pid
-            const lines = output.split('\n').map(line => line.trim());
+            const lines = output.split("\n").map((line) => line.trim());
             console.log(`[TRACKING] Raw output lines:`, lines);
-            
+
             if (lines.length >= 2) {
               const [title, id, app, pid] = lines;
-              
+
               // Extract app name from title if app is undefined
-              let appName = app && app !== 'undefined' ? app : 'Unknown App';
-              if (appName === 'Unknown App' && title) {
+              let appName = app && app !== "undefined" ? app : "Unknown App";
+              if (appName === "Unknown App" && title) {
                 // Try to extract app name from title (e.g., "timey - Windsurf - ..." -> "Windsurf")
-                const titleParts = title.split(' - ');
+                const titleParts = title.split(" - ");
                 if (titleParts.length > 1) {
                   appName = titleParts[1] || titleParts[0];
                 }
               }
-              
-              const processId = pid && pid !== 'undefined' ? parseInt(pid) : 0;
-              
-              console.log(`[TRACKING] Successfully detected: ${appName} - ${title}`);
+
+              const processId = pid && pid !== "undefined" ? parseInt(pid) : 0;
+
+              console.log(
+                `[TRACKING] Successfully detected: ${appName} - ${title}`
+              );
               resolve({
                 title: title || "Unknown Window",
                 owner: {
                   name: appName,
                   processId: processId,
-                  path: ""
+                  path: "",
                 },
-                id: id || "unknown"
+                id: id || "unknown",
               });
             } else {
-              console.log("[TRACKING] Invalid active-window output format - not enough lines");
+              console.log(
+                "[TRACKING] Invalid active-window output format - not enough lines"
+              );
               resolve(null);
             }
           });
         });
       } catch (error) {
-        console.error("[TRACKING] Error executing active-window command:", error);
+        console.error(
+          "[TRACKING] Error executing active-window command:",
+          error
+        );
         return null;
       }
     };
@@ -395,17 +402,23 @@ ipcMain.on("start-tracking", async () => {
         appUsage.set(appName, currentTime + CHECK_INTERVAL);
 
         console.log(
-          `[TRACKING] Active App: ${appName} | Window: ${windowTitle} | Session Time: ${appUsage.get(appName)}s | Total Apps Tracked: ${appUsage.size}`
+          `[TRACKING] Active App: ${appName} | Window: ${windowTitle} | Session Time: ${appUsage.get(
+            appName
+          )}s | Total Apps Tracked: ${appUsage.size}`
         );
       } else {
-        console.log("[TRACKING] No active window detected or window data unavailable");
+        console.log(
+          "[TRACKING] No active window detected or window data unavailable"
+        );
       }
     } catch (error) {
       console.error("[TRACKING ERROR] Could not get active window:", error);
     }
   }, CHECK_INTERVAL * 1000);
 
-  console.log(`[TRACKING] Started monitoring active windows every ${CHECK_INTERVAL} seconds`);
+  console.log(
+    `[TRACKING] Started monitoring active windows every ${CHECK_INTERVAL} seconds`
+  );
 });
 
 ipcMain.on("stop-tracking", () => {
@@ -421,10 +434,17 @@ ipcMain.on("stop-tracking", () => {
     appUsage.forEach((time, app) => {
       const minutes = Math.floor(time / 60);
       const seconds = time % 60;
-      console.log(`[TRACKING] ${app}: ${minutes}m ${seconds}s (${time} total seconds)`);
+      console.log(
+        `[TRACKING] ${app}: ${minutes}m ${seconds}s (${time} total seconds)`
+      );
     });
     console.log(`[TRACKING] Total apps tracked: ${appUsage.size}`);
-    console.log(`[TRACKING] Total session time: ${Array.from(appUsage.values()).reduce((a, b) => a + b, 0)} seconds`);
+    console.log(
+      `[TRACKING] Total session time: ${Array.from(appUsage.values()).reduce(
+        (a, b) => a + b,
+        0
+      )} seconds`
+    );
   } else {
     console.log("[TRACKING] No app usage data recorded in this session");
   }

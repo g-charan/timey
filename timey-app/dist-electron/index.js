@@ -685,7 +685,9 @@ async function initializeActiveWindow() {
                 }
               }
               const processId = pid && pid !== "undefined" ? parseInt(pid) : 0;
-              console.log(`[TRACKING] Successfully detected: ${appName} - ${title}`);
+              console.log(
+                `[TRACKING] Successfully detected: ${appName} - ${title}`
+              );
               resolve({
                 title: title || "Unknown Window",
                 owner: {
@@ -696,13 +698,18 @@ async function initializeActiveWindow() {
                 id: id || "unknown"
               });
             } else {
-              console.log("[TRACKING] Invalid active-window output format - not enough lines");
+              console.log(
+                "[TRACKING] Invalid active-window output format - not enough lines"
+              );
               resolve(null);
             }
           });
         });
       } catch (error) {
-        console.error("[TRACKING] Error executing active-window command:", error);
+        console.error(
+          "[TRACKING] Error executing active-window command:",
+          error
+        );
         return null;
       }
     };
@@ -729,16 +736,22 @@ ipcMain.on("start-tracking", async () => {
         const currentTime = appUsage.get(appName) || 0;
         appUsage.set(appName, currentTime + CHECK_INTERVAL);
         console.log(
-          `[TRACKING] Active App: ${appName} | Window: ${windowTitle} | Session Time: ${appUsage.get(appName)}s | Total Apps Tracked: ${appUsage.size}`
+          `[TRACKING] Active App: ${appName} | Window: ${windowTitle} | Session Time: ${appUsage.get(
+            appName
+          )}s | Total Apps Tracked: ${appUsage.size}`
         );
       } else {
-        console.log("[TRACKING] No active window detected or window data unavailable");
+        console.log(
+          "[TRACKING] No active window detected or window data unavailable"
+        );
       }
     } catch (error) {
       console.error("[TRACKING ERROR] Could not get active window:", error);
     }
   }, CHECK_INTERVAL * 1e3);
-  console.log(`[TRACKING] Started monitoring active windows every ${CHECK_INTERVAL} seconds`);
+  console.log(
+    `[TRACKING] Started monitoring active windows every ${CHECK_INTERVAL} seconds`
+  );
 });
 ipcMain.on("stop-tracking", () => {
   console.log("[TRACKING] STOP tracking activity.");
@@ -751,10 +764,17 @@ ipcMain.on("stop-tracking", () => {
     appUsage.forEach((time, app2) => {
       const minutes = Math.floor(time / 60);
       const seconds = time % 60;
-      console.log(`[TRACKING] ${app2}: ${minutes}m ${seconds}s (${time} total seconds)`);
+      console.log(
+        `[TRACKING] ${app2}: ${minutes}m ${seconds}s (${time} total seconds)`
+      );
     });
     console.log(`[TRACKING] Total apps tracked: ${appUsage.size}`);
-    console.log(`[TRACKING] Total session time: ${Array.from(appUsage.values()).reduce((a, b) => a + b, 0)} seconds`);
+    console.log(
+      `[TRACKING] Total session time: ${Array.from(appUsage.values()).reduce(
+        (a, b) => a + b,
+        0
+      )} seconds`
+    );
   } else {
     console.log("[TRACKING] No app usage data recorded in this session");
   }

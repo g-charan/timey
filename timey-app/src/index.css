@@ -1,5 +1,13 @@
+@import url("https://fonts.googleapis.com/css2?family=Inconsolata:wght@200..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&family=Inconsolata:wght@200..900&display=swap");
+
 @import "tailwindcss";
 @import "tw-animate-css";
+
+@theme {
+  --font-inconsolata: "Inconsolata", monospace;
+  --font-firacode: "Fira Code", monospace;
+}
 
 @custom-variant dark (&:is(.dark *));
 

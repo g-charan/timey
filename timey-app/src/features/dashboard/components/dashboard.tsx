@@ -41,8 +41,10 @@ export const DashboardView = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-foreground">Dashboard</h2>
-          <p className="text-muted-foreground mt-1">
+          <h2 className="text-3xl font-inconsolata font-bold text-foreground">
+            Dashboard
+          </h2>
+          <p className="text-muted-foreground mt-1 font-firacode">
             Today's summary •{" "}
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
@@ -54,7 +56,7 @@ export const DashboardView = () => {
         </div>
         <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
           <Clock className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-muted-foreground font-inconsolata">
             Last updated:{" "}
             {new Date().toLocaleTimeString("en-US", {
               hour: "2-digit",
@@ -70,18 +72,18 @@ export const DashboardView = () => {
         <Card className="border-border hover:border-primary/50 transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-foreground">
+              <CardTitle className="text-sm font-medium text-foreground font-inconsolata">
                 Your Next Focus Block
               </CardTitle>
             </div>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-xs font-firacode">
               Privacy-first local heuristic
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               <button
-                className="px-3 py-2 border rounded text-sm"
+                className="px-3 py-2 border rounded text-sm font-inconsolata"
                 onClick={async () => {
                   const res = await window.appAPI.getAISuggestion();
                   if (res?.suggestion) {
@@ -102,12 +104,12 @@ export const DashboardView = () => {
         <Card className="border-border hover:border-primary/50 transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-foreground">
+              <CardTitle className="text-sm font-inconsolata font-medium text-foreground">
                 Daily Focus
               </CardTitle>
               <Target className="w-4 h-4 text-muted-foreground" />
             </div>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-xs font-firacode">
               {hoursCompleted} / {dailyGoalHours} hours completed
             </CardDescription>
           </CardHeader>
@@ -115,7 +117,7 @@ export const DashboardView = () => {
             <div className="space-y-2">
               <Progress value={progress} className="h-2" />
               <div className="flex items-center justify-between">
-                <span className="text-2xl font-bold text-foreground">
+                <span className="text-2xl font-bold text-foreground font-inconsolata">
                   {Math.round(progress)}%
                 </span>
                 {getTrendIcon()}
@@ -128,20 +130,20 @@ export const DashboardView = () => {
         <Card className="border-border hover:border-primary/50 transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-foreground">
+              <CardTitle className="text-sm  font-inconsolata font-medium text-foreground">
                 Projects
               </CardTitle>
             </div>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-xs font-firacode">
               Your active projects
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <p className="text-2xl font-bold text-foreground">
+              <p className="text-2xl font-bold text-foreground font-inconsolata ">
                 {projects[0]?.name ?? "No projects"}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground font-firacode">
                 {projects.length} total
               </p>
             </div>
@@ -152,21 +154,23 @@ export const DashboardView = () => {
         <Card className="border-border hover:border-primary/50 transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-foreground">
+              <CardTitle className="text-sm font-inconsolata font-medium text-foreground">
                 Focus Streak
               </CardTitle>
               <Flame className="w-4 h-4 text-amber-500" />
             </div>
-            <CardDescription className="text-xs">
+            <CardDescription className="text-xs font-firacode">
               Consistent days of focus
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-end gap-2">
-              <span className="text-2xl font-bold text-foreground">
+              <span className="text-2xl font-bold text-foreground font-inconsolata">
                 {streak}
               </span>
-              <span className="text-sm text-muted-foreground pb-1">days</span>
+              <span className="text-sm font-firacode text-muted-foreground pb-1">
+                days
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -175,7 +179,7 @@ export const DashboardView = () => {
         <Card className="border-border hover:border-primary/50 transition-colors">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium text-foreground">
+              <CardTitle className="text-sm font-inconsolata font-medium text-foreground">
                 Today
               </CardTitle>
               <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -184,10 +188,12 @@ export const DashboardView = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-end gap-2">
-              <span className="text-2xl font-bold text-foreground">
+              <span className="text-2xl font-bold text-foreground font-inconsolata">
                 {(hoursCompleted || 0).toFixed(1)}
               </span>
-              <span className="text-sm text-muted-foreground pb-1">hours</span>
+              <span className="text-sm font-firacode text-muted-foreground pb-1">
+                hours
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -196,10 +202,10 @@ export const DashboardView = () => {
       {/* Recent Sessions Table */}
       <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-foreground">
+          <CardTitle className="text-foreground font-inconsolata">
             Recent Focus Sessions
           </CardTitle>
-          <CardDescription className="text-xs">
+          <CardDescription className="text-xs font-firacode">
             Your last 3 focus sessions
           </CardDescription>
         </CardHeader>
@@ -242,7 +248,10 @@ export const DashboardView = () => {
                     {Math.round((session.actual_seconds ?? 0) / 60)} min
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="border-border text-xs">
+                    <Badge
+                      variant="outline"
+                      className="border-border text-xs font-firacode"
+                    >
                       {session.project_id ? "Project" : "Ad-hoc"}
                     </Badge>
                   </TableCell>
@@ -291,10 +300,10 @@ export const DashboardView = () => {
             <div className="rounded-full bg-muted p-4 mb-4">
               <Clock className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium text-foreground mb-2">
+            <h3 className="text-lg font-medium text-foreground font-inconsolata mb-2">
               No focus sessions yet
             </h3>
-            <p className="text-muted-foreground text-center text-sm max-w-sm">
+            <p className="text-muted-foreground text-center text-sm  font-firacode max-w-sm">
               Start your first focus session to see your productivity insights
               here.
             </p>
@@ -305,8 +314,10 @@ export const DashboardView = () => {
       {/* Simple Shutdown Ritual (inline) */}
       <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-foreground">Shutdown Ritual</CardTitle>
-          <CardDescription className="text-xs">
+          <CardTitle className=" font-inconsolata text-foreground">
+            Shutdown Ritual
+          </CardTitle>
+          <CardDescription className="text-xs font-firacode">
             Capture wins, open loops, and tomorrow’s intentions
           </CardDescription>
         </CardHeader>
